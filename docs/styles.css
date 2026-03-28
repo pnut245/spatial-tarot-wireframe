@@ -351,7 +351,10 @@ textarea {
 .tarot-card__inner {
   position: absolute;
   inset: 0;
+  will-change: transform;
+  transform-origin: center center;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 520ms cubic-bezier(0.2, 0.85, 0.25, 1);
 }
 
@@ -364,6 +367,7 @@ textarea {
   gap: 10px;
   justify-content: space-between;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .slot .tarot-card__face {

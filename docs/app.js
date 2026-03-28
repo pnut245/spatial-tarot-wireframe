@@ -1,5 +1,5 @@
 const STORAGE_KEY = "spatial-tarot-wireframe:v1";
-const APP_VERSION = "2026-03-28-graphic-grid";
+const APP_VERSION = "2026-03-28-auto-flip-v2";
 
 // Embedded so this works when opening `index.html` directly (no local server needed).
 const DECK = {
@@ -725,7 +725,7 @@ async function dealToBoardWithDelay(state, count, { kind }) {
 
   updateDealDelayLabel();
   const delayMs = getDealDelayMs();
-  const revealMs = delayMs > 0 ? Math.min(450, Math.max(180, Math.round(delayMs * 0.55))) : 0;
+  const revealMs = delayMs > 0 ? Math.min(800, Math.max(350, Math.round(delayMs * 0.6))) : 0;
 
   for (let i = 0; i < count; i += 1) {
     if (state.ui.deal_job_id !== jobId) break;
