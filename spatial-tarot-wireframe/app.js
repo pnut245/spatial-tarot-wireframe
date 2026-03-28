@@ -647,7 +647,7 @@ function placeIntoSlot(state, instanceId, plane, code) {
   renderAll(state);
 }
 
-function drawOneInstance(state, { kind }) {
+function drawOneInstance(state, { kind, faceUp = true } = {}) {
   if (state.remaining.length === 0) return null;
   ensureRng(state);
   const idx = rngInt(state, state.remaining.length);
@@ -658,7 +658,7 @@ function drawOneInstance(state, { kind }) {
   state.instances[instanceId] = {
     id: instanceId,
     card_id: cardId,
-    face_up: true,
+    face_up: Boolean(faceUp),
     reversed: rngFloat01(state) < 0.18,
     plane: null,
     slot_code: null,
@@ -695,13 +695,15 @@ async function dealToBoardWithDelay(state, count, { kind }) {
 
   updateDealDelayLabel();
   const delayMs = getDealDelayMs();
+  const revealMs = delayMs > 0 ? Math.min(450, Math.max(180, Math.round(delayMs * 0.55))) : 0;
 
   for (let i = 0; i < count; i += 1) {
     if (state.ui.deal_job_id !== jobId) break;
     const next = nextEmptyDealSlot(state);
     if (!next) break;
 
-    const instanceId = drawOneInstance(state, { kind });
+    // Deal as face-down first, then reveal (auto-flip) to emulate a human reading.
+    const instanceId = drawOneInstance(state, { kind, faceUp: false });
     if (!instanceId) break;
 
     // Place directly to board (no hand interaction in auto-draw mode).
@@ -721,7 +723,21 @@ async function dealToBoardWithDelay(state, count, { kind }) {
     saveState(state);
     renderAll(state);
 
-    if (delayMs > 0 && i < count - 1) await sleep(delayMs);
+    if (revealMs > 0) await sleep(revealMs);
+    if (state.ui.deal_job_id !== jobId) break;
+
+    // Reveal (flip face-up).
+    const inst = state.instances[instanceId];
+    if (inst && !inst.face_up) {
+      inst.face_up = true;
+      addEvent(state, "card.flip", { instance_id: instanceId, face_up: true, mode: "auto_reveal" });
+      saveState(state);
+      renderAll(state);
+    }
+
+    // Keep pacing between placements (pace includes reveal time).
+    const remainingPace = delayMs - revealMs;
+    if (remainingPace > 0 && i < count - 1) await sleep(remainingPace);
   }
 
   if (state.ui.deal_job_id === jobId) {
@@ -1059,11 +1075,12 @@ function wireControls(state, deck) {
         "Auto-deal:\\n" +
         "- Fills slots by stack: A then B then C then D\\n" +
         "- Within a stack: Understory → Surface → Horizon\\n" +
+        "- Deals face-down, then flips to reveal\\n" +
         "- Deal pace adds a short delay between cards\\n" +
         "- The next target slot is highlighted in amber\\n\\n" +
-        "Input:\\n" +
-        "- Drag a card onto a slot\\n" +
-        "- Or click a card, then click a slot\\n\\n" +
+        "Input (rare):\\n" +
+        "- If the board is full, extra cards go to Hand\\n" +
+        "- You can drag/click from Hand to place manually\\n\\n" +
         "Inspect:\\n" +
         "- Select a card to flip/reverse + add a note\\n\\n" +
         "Export:\\n" +
