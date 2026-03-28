@@ -382,6 +382,10 @@ function hasSubmittedQuestion(state) {
   return Boolean(state.session?.question_submitted_at);
 }
 
+function hasCompletedOnboarding(state) {
+  return Boolean(state.profile?.onboarding_completed_at || state.profile?.onboarding_skipped_at);
+}
+
 function getDealDelayMs() {
   const el = byId("deal-delay");
   const n = Number.parseInt(el?.value ?? "0", 10);
@@ -1877,9 +1881,11 @@ function renderAll(state) {
   const isDealing = Boolean(state.ui?.dealing);
   const valid = isNonEmptyQuestion(state);
   const submitted = hasSubmittedQuestion(state);
-  if (submitBtn) submitBtn.disabled = isDealing || submitted || !valid;
+  const onboardingDone = hasCompletedOnboarding(state);
+  if (submitBtn) submitBtn.disabled = isDealing || submitted || !valid || !onboardingDone;
   if (qHint) {
-    if (submitted) qHint.textContent = "Question submitted. Use the controls below for clarifiers.";
+    if (!onboardingDone) qHint.textContent = "Complete Profile (or Skip) to begin dealing.";
+    else if (submitted) qHint.textContent = "Question submitted. Use the controls below for clarifiers.";
     else if (!valid) qHint.textContent = "Enter a question to begin.";
     else qHint.textContent = "Ready. Submit to deal the spread.";
   }
@@ -1934,6 +1940,16 @@ function wireControls(state, deck) {
   const homeStart = byId("home-start");
   if (homeStart)
     homeStart.onclick = () => {
+      if (!hasCompletedOnboarding(state)) {
+        addEvent(state, "ui.blocked", { action: "start_session", reason: "onboarding_required" });
+        saveState(state);
+        showScreen("profile");
+        renderAll(state);
+        renderProfile(state);
+        renderProfileSummary(state);
+        return;
+      }
+
       showScreen("session");
       addEvent(state, "ui.start", {});
       saveState(state);
@@ -1943,7 +1959,19 @@ function wireControls(state, deck) {
   const navHome = byId("nav-home");
   if (navHome) navHome.onclick = () => showScreen("home");
   const navSession = byId("nav-session");
-  if (navSession) navSession.onclick = () => showScreen("session");
+  if (navSession)
+    navSession.onclick = () => {
+      if (!hasCompletedOnboarding(state)) {
+        addEvent(state, "ui.blocked", { action: "nav_session", reason: "onboarding_required" });
+        saveState(state);
+        showScreen("profile");
+        renderAll(state);
+        renderProfile(state);
+        renderProfileSummary(state);
+        return;
+      }
+      showScreen("session");
+    };
   const navProfile = byId("nav-profile");
   if (navProfile) navProfile.onclick = () => showScreen("profile");
 
@@ -1993,11 +2021,13 @@ function wireControls(state, deck) {
   const navReset = byId("nav-reset");
   if (navReset)
     navReset.onclick = () => {
-    const next = resetState(deck);
-    Object.assign(state, next);
-    showScreen("home");
-    renderAll(state);
-  };
+      const next = resetState(deck);
+      Object.assign(state, next);
+      showScreen("profile");
+      renderAll(state);
+      renderProfile(state);
+      renderProfileSummary(state);
+    };
 
   const openProfile = byId("open-profile");
   if (openProfile) openProfile.onclick = () => showScreen("profile");
@@ -2022,6 +2052,15 @@ function wireControls(state, deck) {
   const submitBtn = byId("submit-question");
   if (submitBtn)
     submitBtn.onclick = () => {
+      if (!hasCompletedOnboarding(state)) {
+        addEvent(state, "ui.blocked", { action: "deal", reason: "onboarding_required" });
+        saveState(state);
+        showScreen("profile");
+        renderAll(state);
+        renderProfile(state);
+        renderProfileSummary(state);
+        return;
+      }
       if (!isNonEmptyQuestion(state)) return;
       state.session ||= { question_submitted_at: null };
       if (state.session.question_submitted_at) return;
