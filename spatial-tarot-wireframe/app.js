@@ -1,5 +1,5 @@
 const STORAGE_KEY = "spatial-tarot-wireframe:v1";
-const APP_VERSION = "2026-03-28-auto-flip-v2";
+const APP_VERSION = "2026-03-28-profile-quiz";
 
 // Embedded so this works when opening `index.html` directly (no local server needed).
 const DECK = {
@@ -355,6 +355,16 @@ function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+const USER_ID_KEY = "spatial-tarot-user-id:v1";
+
+function getOrCreateUserId() {
+  const existing = localStorage.getItem(USER_ID_KEY);
+  if (existing) return existing;
+  const id = typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : uid("user");
+  localStorage.setItem(USER_ID_KEY, id);
+  return id;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -370,6 +380,7 @@ function defaultState(deck) {
   return {
     version: 1,
     session_id: uid("session"),
+    user_id: getOrCreateUserId(),
     created_at: nowIso(),
     question: "",
     rng: { seed: seedFromCryptoOrTime(), state: null, calls: 0 },
@@ -391,7 +402,21 @@ function defaultState(deck) {
       selected_instance_id: null,
       selected_hand_instance_id: null,
       hovered_slot_code: null,
-      hovered_plane: null
+      hovered_plane: null,
+      profile_step: 0,
+      dealing: false,
+      deal_job_id: null,
+      last_dealt_instance_id: null
+    },
+    profile: {
+      version: 1,
+      created_at: null,
+      updated_at: null,
+      quiz: { answers: {} }, // questionId -> optionId
+      scores: null,
+      enneagram: null,
+      astrology_resonance: null,
+      natal: { birth_date: "", birth_time: "", birth_place: "", sun_sign: "" }
     },
     _cardById: cardById
   };
@@ -404,6 +429,270 @@ function addEvent(state, type, payload = {}) {
     type,
     payload
   });
+}
+
+function bumpProfileUpdated(state) {
+  state.profile ||= defaultState(DECK).profile;
+  if (!state.profile.created_at) state.profile.created_at = nowIso();
+  state.profile.updated_at = nowIso();
+}
+
+function addScores(target, delta) {
+  if (!delta) return;
+  for (const [k, v] of Object.entries(delta)) {
+    target[k] = (target[k] ?? 0) + (v ?? 0);
+  }
+}
+
+function topKeys(scoreMap, n = 3) {
+  return Object.entries(scoreMap ?? {})
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .slice(0, n)
+    .map(([k, v]) => ({ key: k, score: v ?? 0 }));
+}
+
+function sunSignFromDate(yyyyMmDd) {
+  if (!yyyyMmDd) return "";
+  const parts = yyyyMmDd.split("-");
+  if (parts.length !== 3) return "";
+  const month = Number.parseInt(parts[1], 10);
+  const day = Number.parseInt(parts[2], 10);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return "";
+  // Tropical zodiac (approx boundaries).
+  const md = month * 100 + day;
+  if (md >= 321 && md <= 419) return "Aries";
+  if (md >= 420 && md <= 520) return "Taurus";
+  if (md >= 521 && md <= 620) return "Gemini";
+  if (md >= 621 && md <= 722) return "Cancer";
+  if (md >= 723 && md <= 822) return "Leo";
+  if (md >= 823 && md <= 922) return "Virgo";
+  if (md >= 923 && md <= 1022) return "Libra";
+  if (md >= 1023 && md <= 1121) return "Scorpio";
+  if (md >= 1122 && md <= 1221) return "Sagittarius";
+  if (md >= 1222 || md <= 119) return "Capricorn";
+  if (md >= 120 && md <= 218) return "Aquarius";
+  if (md >= 219 && md <= 320) return "Pisces";
+  return "";
+}
+
+function promptArtSvg(type) {
+  // Simple inline SVG “image prompts” (no external assets).
+  switch (type) {
+    case "mountain":
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="g" x1="0" x2="1">
+            <stop offset="0" stop-color="rgba(167,139,250,0.18)"/>
+            <stop offset="1" stop-color="rgba(125,211,252,0.18)"/>
+          </linearGradient>
+        </defs>
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <path d="M20 120 L90 40 L140 90 L175 55 L220 120 Z" fill="url(#g)" stroke="rgba(231,238,252,0.25)" stroke-width="2"/>
+        <path d="M90 40 L110 70" stroke="rgba(231,238,252,0.35)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="190" cy="34" r="10" fill="none" stroke="rgba(52,211,153,0.55)" stroke-width="3"/>
+      </svg>`;
+    case "ocean":
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <path d="M0 85 C30 65, 60 105, 90 85 C120 65, 150 105, 180 85 C210 65, 240 105, 270 85" fill="none" stroke="rgba(125,211,252,0.6)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M0 105 C30 85, 60 125, 90 105 C120 85, 150 125, 180 105 C210 85, 240 125, 270 105" fill="none" stroke="rgba(167,139,250,0.42)" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="48" cy="44" r="12" fill="none" stroke="rgba(251,191,36,0.6)" stroke-width="3"/>
+      </svg>`;
+    case "sky":
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <path d="M40 78 C55 55, 85 55, 100 78 C125 45, 165 55, 160 86 C185 86, 200 98, 196 114 L50 114 C30 105, 24 92, 40 78 Z" fill="rgba(231,238,252,0.1)" stroke="rgba(231,238,252,0.25)" stroke-width="2"/>
+        <path d="M128 26 l6 16 17 2 -13 11 4 17 -14 -9 -14 9 4-17 -13-11 17-2 6-16Z" fill="none" stroke="rgba(52,211,153,0.55)" stroke-width="2" stroke-linejoin="round"/>
+      </svg>`;
+    case "forge":
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <path d="M60 110 L120 30 L180 110 Z" fill="rgba(251,113,133,0.14)" stroke="rgba(251,113,133,0.55)" stroke-width="2"/>
+        <path d="M120 52 C110 70, 130 70, 120 92 C108 78, 92 86, 100 104 C85 98, 75 116, 92 122 C115 130, 138 124, 146 110 C156 92, 140 78, 120 52 Z" fill="rgba(251,191,36,0.16)" stroke="rgba(251,191,36,0.6)" stroke-width="2"/>
+      </svg>`;
+    case "library":
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <rect x="38" y="34" width="34" height="88" rx="6" fill="rgba(125,211,252,0.12)" stroke="rgba(125,211,252,0.45)" stroke-width="2"/>
+        <rect x="78" y="26" width="34" height="96" rx="6" fill="rgba(167,139,250,0.12)" stroke="rgba(167,139,250,0.45)" stroke-width="2"/>
+        <rect x="118" y="40" width="34" height="82" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.45)" stroke-width="2"/>
+        <rect x="158" y="30" width="34" height="92" rx="6" fill="rgba(231,238,252,0.08)" stroke="rgba(231,238,252,0.25)" stroke-width="2"/>
+      </svg>`;
+    case "garden":
+    default:
+      return `<svg viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="240" height="140" fill="rgba(11,15,23,0.22)"/>
+        <path d="M40 112 C60 90, 90 90, 110 112 C130 85, 170 86, 190 112" fill="none" stroke="rgba(52,211,153,0.6)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M90 112 V70" stroke="rgba(231,238,252,0.22)" stroke-width="2"/>
+        <path d="M90 70 C80 74, 76 84, 82 92 C92 92, 98 82, 90 70 Z" fill="rgba(52,211,153,0.18)" stroke="rgba(52,211,153,0.55)" stroke-width="2"/>
+      </svg>`;
+  }
+}
+
+const PROFILE_QUESTIONS = [
+  {
+    id: "axis-security",
+    prompt: "When you’re uncertain, what helps most?",
+    options: [
+      {
+        id: "plan",
+        label: "A clear plan",
+        sub: "Stability, steps, guardrails",
+        art: "library",
+        enneagram: { 6: 2, 1: 1, 5: 1 },
+        astro: { earth: 2, fixed: 1, saturn: 1 }
+      },
+      {
+        id: "trust",
+        label: "Trust the flow",
+        sub: "Surrender, timing, intuition",
+        art: "ocean",
+        enneagram: { 9: 2, 2: 1, 4: 1 },
+        astro: { water: 2, mutable: 1, neptune: 1 }
+      },
+      {
+        id: "move",
+        label: "Make a bold move",
+        sub: "Momentum, decisive action",
+        art: "forge",
+        enneagram: { 8: 2, 3: 1, 7: 1 },
+        astro: { fire: 2, cardinal: 1, mars: 1 }
+      }
+    ]
+  },
+  {
+    id: "axis-focus",
+    prompt: "What kind of clarity feels right today?",
+    options: [
+      {
+        id: "truth",
+        label: "Hard truth",
+        sub: "Cut through and decide",
+        art: "mountain",
+        enneagram: { 8: 1, 1: 1, 6: 1 },
+        astro: { fire: 1, earth: 1, mars: 1, saturn: 1 }
+      },
+      {
+        id: "meaning",
+        label: "Deeper meaning",
+        sub: "Symbols, pattern, story",
+        art: "sky",
+        enneagram: { 4: 2, 5: 1, 9: 1 },
+        astro: { water: 1, air: 1, neptune: 1, moon: 1 }
+      },
+      {
+        id: "useful",
+        label: "Practical next step",
+        sub: "Small action you can do",
+        art: "garden",
+        enneagram: { 3: 1, 2: 1, 1: 1 },
+        astro: { earth: 2, cardinal: 1, saturn: 1 }
+      }
+    ]
+  },
+  {
+    id: "axis-energy",
+    prompt: "Which atmosphere matches your energy?",
+    options: [
+      { id: "quiet", label: "Quiet depth", sub: "Slow, reflective, inward", art: "ocean", enneagram: { 5: 2, 4: 1, 9: 1 }, astro: { water: 2, fixed: 1, moon: 1 } },
+      { id: "bright", label: "Bright motion", sub: "Upbeat, curious, outward", art: "sky", enneagram: { 7: 2, 3: 1, 2: 1 }, astro: { air: 2, mutable: 1, jupiter: 1 } },
+      { id: "steady", label: "Steady grounded", sub: "Calm, reliable, embodied", art: "garden", enneagram: { 9: 1, 6: 1, 1: 1 }, astro: { earth: 2, fixed: 1, saturn: 1 } }
+    ]
+  },
+  {
+    id: "axis-relation",
+    prompt: "In relationships, you tend to…",
+    options: [
+      { id: "support", label: "Support & nurture", sub: "Care through presence", art: "garden", enneagram: { 2: 2, 9: 1, 6: 1 }, astro: { water: 1, earth: 1, venus: 1, moon: 1 } },
+      { id: "achieve", label: "Protect the mission", sub: "Build something real", art: "mountain", enneagram: { 3: 2, 1: 1, 8: 1 }, astro: { cardinal: 1, earth: 1, sun: 1, saturn: 1 } },
+      { id: "space", label: "Need breathing room", sub: "Autonomy matters", art: "sky", enneagram: { 5: 1, 7: 1, 4: 1 }, astro: { air: 2, fixed: 1, uranus: 1 } }
+    ]
+  },
+  {
+    id: "axis-threat",
+    prompt: "When something feels off, your first move is…",
+    options: [
+      { id: "scan", label: "Scan for risk", sub: "What could go wrong?", art: "library", enneagram: { 6: 2, 5: 1 }, astro: { earth: 1, air: 1, saturn: 1, mercury: 1 } },
+      { id: "confront", label: "Confront directly", sub: "Name it and handle it", art: "forge", enneagram: { 8: 2, 1: 1 }, astro: { fire: 2, mars: 1, pluto: 1 } },
+      { id: "reframe", label: "Reframe gently", sub: "Find the hidden need", art: "ocean", enneagram: { 9: 1, 2: 1, 4: 1 }, astro: { water: 2, neptune: 1, venus: 1 } }
+    ]
+  },
+  {
+    id: "axis-identity",
+    prompt: "Pick a style of self-expression:",
+    options: [
+      { id: "signature", label: "Signature & excellence", sub: "Be known for it", art: "mountain", enneagram: { 3: 2, 1: 1 }, astro: { sun: 1, saturn: 1, earth: 1, fixed: 1 } },
+      { id: "original", label: "Original & strange", sub: "Be unmistakably you", art: "sky", enneagram: { 4: 2, 7: 1 }, astro: { uranus: 1, air: 1, mutable: 1 } },
+      { id: "simple", label: "Simple & sincere", sub: "Less performance, more truth", art: "garden", enneagram: { 9: 1, 2: 1, 5: 1 }, astro: { earth: 1, water: 1, moon: 1 } }
+    ]
+  },
+  {
+    id: "axis-control",
+    prompt: "Where do you want more power right now?",
+    options: [
+      { id: "boundaries", label: "Boundaries", sub: "No more leakage", art: "forge", enneagram: { 8: 2, 1: 1 }, astro: { mars: 1, saturn: 1, fixed: 1 } },
+      { id: "insight", label: "Insight", sub: "See the real pattern", art: "library", enneagram: { 5: 2, 6: 1 }, astro: { mercury: 1, air: 1, fixed: 1 } },
+      { id: "peace", label: "Peace", sub: "Less friction, more ease", art: "ocean", enneagram: { 9: 2, 2: 1 }, astro: { venus: 1, water: 1, mutable: 1 } }
+    ]
+  },
+  {
+    id: "axis-time",
+    prompt: "Which feels more true for you?",
+    options: [
+      { id: "initiate", label: "Initiate", sub: "Start the next chapter", art: "sky", enneagram: { 7: 1, 3: 1, 8: 1 }, astro: { cardinal: 2, fire: 1, jupiter: 1 } },
+      { id: "sustain", label: "Sustain", sub: "Commit and deepen", art: "mountain", enneagram: { 6: 1, 1: 1, 8: 1 }, astro: { fixed: 2, earth: 1, saturn: 1 } },
+      { id: "adapt", label: "Adapt", sub: "Stay responsive", art: "ocean", enneagram: { 9: 1, 5: 1, 4: 1 }, astro: { mutable: 2, water: 1, neptune: 1 } }
+    ]
+  }
+];
+
+function computeProfileFromAnswers(answers) {
+  const enneagram = {};
+  const astro = { fire: 0, earth: 0, air: 0, water: 0, cardinal: 0, fixed: 0, mutable: 0 };
+  const planets = {
+    sun: 0,
+    moon: 0,
+    mercury: 0,
+    venus: 0,
+    mars: 0,
+    jupiter: 0,
+    saturn: 0,
+    uranus: 0,
+    neptune: 0,
+    pluto: 0
+  };
+
+  for (const q of PROFILE_QUESTIONS) {
+    const optId = answers[q.id];
+    const opt = q.options.find((o) => o.id === optId);
+    if (!opt) continue;
+    addScores(enneagram, opt.enneagram);
+    addScores(astro, opt.astro);
+    // Planets are included inside opt.astro as keys; split them out.
+    for (const p of Object.keys(planets)) {
+      if (opt.astro?.[p]) planets[p] = (planets[p] ?? 0) + (opt.astro[p] ?? 0);
+    }
+  }
+
+  // Remove planet keys from astro map (keep elements/modes only).
+  for (const p of Object.keys(planets)) delete astro[p];
+
+  const topTypes = topKeys(enneagram, 3).map((t) => Number.parseInt(t.key, 10)).filter((n) => Number.isFinite(n));
+  const topElem = topKeys({ fire: astro.fire, earth: astro.earth, air: astro.air, water: astro.water }, 2);
+  const topMode = topKeys({ cardinal: astro.cardinal, fixed: astro.fixed, mutable: astro.mutable }, 2);
+  const topPlanet = topKeys(planets, 3);
+
+  const triads = {
+    head: (enneagram[5] ?? 0) + (enneagram[6] ?? 0) + (enneagram[7] ?? 0),
+    heart: (enneagram[2] ?? 0) + (enneagram[3] ?? 0) + (enneagram[4] ?? 0),
+    gut: (enneagram[8] ?? 0) + (enneagram[9] ?? 0) + (enneagram[1] ?? 0)
+  };
+  const topTriad = topKeys(triads, 1)[0]?.key ?? null;
+
+  return {
+    enneagram: { scores: enneagram, top_types: topTypes, top_triad: topTriad },
+    astrology_resonance: { elements: topElem.map((x) => x.key), modes: topMode.map((x) => x.key), planets: topPlanet.map((x) => x.key), scores: { ...astro, planets } }
+  };
 }
 
 function formatDurationMs(ms) {
@@ -451,6 +740,7 @@ function setHoveredSlot(state, { plane, code, on }) {
   if (on) {
     state.ui.hovered_slot_code = code;
     state.ui.hovered_plane = plane;
+    addEvent(state, "ui.hover_slot", { plane, slot_code: code });
   } else if (state.ui.hovered_slot_code === code && state.ui.hovered_plane === plane) {
     state.ui.hovered_slot_code = null;
     state.ui.hovered_plane = null;
@@ -906,6 +1196,19 @@ function renderMetrics(state) {
   const seed = state.rng?.seed ?? "—";
   const next = nextEmptyDealSlot(state);
   const nextText = next ? `${planeLabel(next.plane)} ${next.code}` : "—";
+  const profileLens = state.profile?.scores
+    ? `${(state.profile.scores.enneagram?.top_types ?? []).slice(0, 1).map((n) => `E${n}`).join("")} • ${(state.profile.scores.astrology_resonance?.elements ?? []).slice(0, 1).join("")}`
+    : "—";
+
+  // Behavior tags inferred from events (local-only).
+  const hoverCount = state.events.filter((e) => e.type === "ui.hover_slot").length;
+  const noteSaves = state.events.filter((e) => e.type === "note.save").length;
+  const reversals = state.events.filter((e) => e.type === "card.reverse").length;
+  const behaviorTags = [];
+  if (hoverCount >= 8) behaviorTags.push("stack-reader");
+  if (noteSaves >= 2) behaviorTags.push("note-maker");
+  if (reversals >= 2) behaviorTags.push("reversal-curious");
+  const behavior = behaviorTags.length ? behaviorTags.join(" ") : "—";
 
   el.innerHTML = `
     <div class="metrics__row"><span class="metrics__label">Drawn</span><span class="metrics__value">${drawnCount}</span></div>
@@ -915,6 +1218,8 @@ function renderMetrics(state) {
     <div class="metrics__row"><span class="metrics__label">First placement (from draw)</span><span class="metrics__value">${formatDurationMs(ms)}</span></div>
     <div class="metrics__row"><span class="metrics__label">Auto-deal next</span><span class="metrics__value">${nextText}</span></div>
     <div class="metrics__row"><span class="metrics__label">Seed</span><span class="metrics__value">${seed}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Profile lens</span><span class="metrics__value">${profileLens}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Behavior</span><span class="metrics__value">${behavior}</span></div>
   `;
 }
 
@@ -1006,7 +1311,9 @@ function exportState(state) {
     exported_at: nowIso(),
     question: state.question,
     deck_id: state.deck_id,
+    user_id: state.user_id ?? null,
     rng: state.rng ?? null,
+    profile: state.profile ?? null,
     spread: {
       type: "volumetric_cross_wireframe",
       planes: PLANES.map((p) => p.id),
@@ -1060,9 +1367,11 @@ function renderAll(state) {
 function showScreen(screen) {
   const home = byId("screen-home");
   const session = byId("screen-session");
-  if (!home || !session) return;
+  const profile = byId("screen-profile");
+  if (!home || !session || !profile) return;
   home.classList.toggle("hidden", screen !== "home");
   session.classList.toggle("hidden", screen !== "session");
+  profile.classList.toggle("hidden", screen !== "profile");
 }
 
 function resetState(deck) {
@@ -1087,6 +1396,8 @@ function wireControls(state, deck) {
   if (navHome) navHome.onclick = () => showScreen("home");
   const navSession = byId("nav-session");
   if (navSession) navSession.onclick = () => showScreen("session");
+  const navProfile = byId("nav-profile");
+  if (navProfile) navProfile.onclick = () => showScreen("profile");
 
   const navHelp = byId("nav-help");
   if (navHelp)
@@ -1140,6 +1451,9 @@ function wireControls(state, deck) {
     renderAll(state);
   };
 
+  const openProfile = byId("open-profile");
+  if (openProfile) openProfile.onclick = () => showScreen("profile");
+
   const questionEl = byId("question");
   if (questionEl)
     questionEl.addEventListener("input", (e) => {
@@ -1171,6 +1485,56 @@ function wireControls(state, deck) {
       void dealToBoardWithDelay(state, count, { kind: "deal_full" });
     };
 
+  const profileBack = byId("profile-back");
+  if (profileBack) profileBack.onclick = () => showScreen("session");
+
+  const profileStart = byId("profile-start");
+  if (profileStart)
+    profileStart.onclick = () => {
+      state.profile ||= defaultState(deck).profile;
+      state.profile.quiz ||= { answers: {} };
+      state.profile.quiz.answers = {};
+      state.ui.profile_step = 0;
+      state.profile.scores = null;
+      state.profile.enneagram = null;
+      state.profile.astrology_resonance = null;
+      bumpProfileUpdated(state);
+      addEvent(state, "profile.start", {});
+      saveState(state);
+      renderProfile(state);
+      renderProfileSummary(state);
+    };
+
+  const profileReset = byId("profile-reset");
+  if (profileReset)
+    profileReset.onclick = () => {
+      state.profile = defaultState(deck).profile;
+      state.ui.profile_step = 0;
+      addEvent(state, "profile.clear", {});
+      saveState(state);
+      renderProfile(state);
+      renderProfileSummary(state);
+    };
+
+  const saveNatal = byId("save-natal");
+  if (saveNatal)
+    saveNatal.onclick = () => {
+      state.profile ||= defaultState(deck).profile;
+      state.profile.natal ||= { birth_date: "", birth_time: "", birth_place: "", sun_sign: "" };
+      const d = (byId("birth-date")?.value ?? "").toString();
+      const t = (byId("birth-time")?.value ?? "").toString();
+      const p = (byId("birth-place")?.value ?? "").toString();
+      state.profile.natal.birth_date = d;
+      state.profile.natal.birth_time = t;
+      state.profile.natal.birth_place = p;
+      state.profile.natal.sun_sign = sunSignFromDate(d);
+      bumpProfileUpdated(state);
+      addEvent(state, "profile.natal.save", { has_date: Boolean(d), has_time: Boolean(t), has_place: Boolean(p) });
+      saveState(state);
+      renderProfile(state);
+      renderProfileSummary(state);
+    };
+
   const saveNote = byId("save-note");
   if (saveNote)
     saveNote.onclick = () => {
@@ -1200,6 +1564,122 @@ function wireControls(state, deck) {
   };
 }
 
+function renderProfile(state) {
+  const progress = byId("profile-progress");
+  const prompt = byId("profile-prompt");
+  const choices = byId("profile-choices");
+  const results = byId("profile-results");
+  if (!progress || !prompt || !choices || !results) return;
+
+  state.profile ||= defaultState(DECK).profile;
+  state.profile.quiz ||= { answers: {} };
+  state.ui ||= {};
+  state.ui.profile_step ??= 0;
+
+  const total = PROFILE_QUESTIONS.length;
+  const step = Math.min(total, Math.max(0, state.ui.profile_step ?? 0));
+  const answeredCount = Object.keys(state.profile.quiz.answers ?? {}).length;
+
+  progress.textContent = `Question ${Math.min(step + 1, total)} / ${total}  •  answered ${answeredCount}`;
+
+  const q = PROFILE_QUESTIONS[step] ?? null;
+  if (!q) {
+    prompt.textContent = "Quiz complete.";
+    choices.innerHTML = "";
+  } else {
+    prompt.textContent = q.prompt;
+    choices.innerHTML = q.options
+      .map(
+        (o) => `
+          <button class="choiceCard" type="button" data-q="${q.id}" data-opt="${o.id}">
+            <div class="choiceCard__art">${promptArtSvg(o.art)}</div>
+            <div>
+              <div class="choiceCard__label">${o.label}</div>
+              <div class="choiceCard__sub">${o.sub ?? ""}</div>
+            </div>
+          </button>
+        `
+      )
+      .join("");
+
+    for (const btn of Array.from(choices.querySelectorAll("button.choiceCard"))) {
+      btn.onclick = () => {
+        const qid = btn.dataset.q;
+        const oid = btn.dataset.opt;
+        if (!qid || !oid) return;
+        state.profile.quiz.answers[qid] = oid;
+        bumpProfileUpdated(state);
+        addEvent(state, "profile.answer", { question_id: qid, option_id: oid });
+
+        // Advance.
+        state.ui.profile_step = Math.min(total, step + 1);
+        if (state.ui.profile_step >= total) {
+          const computed = computeProfileFromAnswers(state.profile.quiz.answers);
+          state.profile.scores = computed;
+          state.profile.enneagram = computed.enneagram;
+          state.profile.astrology_resonance = computed.astrology_resonance;
+          addEvent(state, "profile.complete", {
+            enneagram_top: computed.enneagram.top_types,
+            astro_elements: computed.astrology_resonance.elements,
+            astro_modes: computed.astrology_resonance.modes
+          });
+        }
+        saveState(state);
+        renderProfile(state);
+        renderProfileSummary(state);
+      };
+    }
+  }
+
+  const natal = state.profile.natal ?? { birth_date: "", birth_time: "", birth_place: "", sun_sign: "" };
+  const dateEl = byId("birth-date");
+  const timeEl = byId("birth-time");
+  const placeEl = byId("birth-place");
+  if (dateEl) dateEl.value = natal.birth_date ?? "";
+  if (timeEl) timeEl.value = natal.birth_time ?? "";
+  if (placeEl) placeEl.value = natal.birth_place ?? "";
+
+  // Results
+  const computed = state.profile.scores?.enneagram ? state.profile.scores : null;
+  if (!computed) {
+    results.innerHTML = `<div class="inspect__empty">Complete the quiz to generate your Enneagram + astrology resonance profile.</div>`;
+    return;
+  }
+
+  const enneagramTop = (computed.enneagram?.top_types ?? []).slice(0, 3).map((n) => `Type ${n}`).join(" · ");
+  const triad = computed.enneagram?.top_triad ?? "—";
+  const elements = (computed.astrology_resonance?.elements ?? []).join(" + ") || "—";
+  const modes = (computed.astrology_resonance?.modes ?? []).join(" + ") || "—";
+  const planets = (computed.astrology_resonance?.planets ?? []).slice(0, 3).join(" · ") || "—";
+  const sun = state.profile.natal?.sun_sign ? `Sun: ${state.profile.natal.sun_sign}` : "Sun: — (optional)";
+
+  results.innerHTML = `
+    <div><strong>Enneagram (signals)</strong>: ${enneagramTop || "—"}</div>
+    <div class="kv"><div class="kv__k">Triad</div><div class="kv__v">${triad}</div></div>
+    <div class="kv"><div class="kv__k">Elements (resonance)</div><div class="kv__v">${elements}</div></div>
+    <div class="kv"><div class="kv__k">Modes (resonance)</div><div class="kv__v">${modes}</div></div>
+    <div class="kv"><div class="kv__k">Planet vibes</div><div class="kv__v">${planets}</div></div>
+    <div class="kv"><div class="kv__k">Natal</div><div class="kv__v">${sun}</div></div>
+    <div class="hint" style="margin-top: 10px;">
+      Use this as a storytelling lens, not a diagnosis. You can restart the quiz anytime.
+    </div>
+  `;
+}
+
+function renderProfileSummary(state) {
+  const el = byId("profile-summary");
+  if (!el) return;
+  const computed = state.profile?.scores ?? null;
+  if (!computed) {
+    el.textContent = "Not set yet. Use Profile to choose a visual style and (optional) natal overlay.";
+    return;
+  }
+  const enneagramTop = (computed.enneagram?.top_types ?? []).slice(0, 2).map((n) => `Type ${n}`).join(" / ") || "—";
+  const elements = (computed.astrology_resonance?.elements ?? []).slice(0, 2).join("+") || "—";
+  const sun = state.profile?.natal?.sun_sign ? `Sun ${state.profile.natal.sun_sign}` : "Sun —";
+  el.textContent = `Signals: ${enneagramTop} • Resonance: ${elements} • ${sun}`;
+}
+
 async function main() {
   ensureSlotContainers();
   const deck = DECK;
@@ -1217,6 +1697,9 @@ async function main() {
   state.remaining ||= deck.cards.map((c) => c.id);
   state.seq ||= { next_draw_number: 1 };
   ensureRng(state);
+  state.user_id ||= getOrCreateUserId();
+  state.profile ||= defaultState(deck).profile;
+  state.profile.quiz ||= { answers: {} };
   const maxDraw = Math.max(
     0,
     ...Object.values(state.instances)
@@ -1233,6 +1716,7 @@ async function main() {
   };
   state.ui.hovered_slot_code ??= null;
   state.ui.hovered_plane ??= null;
+  state.ui.profile_step ??= 0;
 
   wireControls(state, deck);
 
@@ -1240,6 +1724,8 @@ async function main() {
   const hasWork = state.events.some((e) => e.type !== "session.start");
   showScreen(hasWork ? "session" : "home");
   renderAll(state);
+  renderProfile(state);
+  renderProfileSummary(state);
 }
 
 main().catch((err) => {

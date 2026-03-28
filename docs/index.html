@@ -15,6 +15,7 @@
       <nav class="topbar__nav">
         <button class="btn btn--ghost" id="nav-home" type="button">Home</button>
         <button class="btn btn--ghost" id="nav-session" type="button">Start</button>
+        <button class="btn btn--ghost" id="nav-profile" type="button">Profile</button>
         <button class="btn btn--ghost" id="nav-help" type="button">Help</button>
         <button class="btn btn--ghost" id="nav-export" type="button">Export JSON</button>
         <button class="btn btn--ghost" id="nav-reset" type="button">Reset</button>
@@ -85,6 +86,14 @@
           </div>
 
           <div class="cardlike">
+            <h2>Reader profile</h2>
+            <div class="hint" id="profile-summary">Not set yet. Use Profile to choose a visual style and (optional) natal overlay.</div>
+            <div class="row" style="margin-top: 10px;">
+              <button class="btn" id="open-profile" type="button">Open profile</button>
+            </div>
+          </div>
+
+          <div class="cardlike">
             <h2>Hand</h2>
             <div class="hand" id="hand"></div>
             <div class="hint">
@@ -150,6 +159,57 @@
           </div>
         </div>
       </section>
+
+      <section class="panel panel--profile hidden" id="screen-profile">
+        <div class="cardlike">
+          <h2>Profile</h2>
+          <p class="hint">
+            This is a <strong>visual preference</strong> quiz to tune narrative tone + archetype lens. It does not “guess your real chart.”
+            Everything is stored locally in your browser unless you later add sharing.
+          </p>
+        </div>
+
+        <div class="grid2" style="margin-top: 14px;">
+          <div class="cardlike">
+            <h2>Visual prompts</h2>
+            <div class="profileProgress" id="profile-progress"></div>
+            <div class="profilePrompt" id="profile-prompt"></div>
+            <div class="profileChoices" id="profile-choices"></div>
+            <div class="row" style="margin-top: 12px;">
+              <button class="btn btn--primary" id="profile-start" type="button">Start / restart quiz</button>
+              <button class="btn" id="profile-reset" type="button">Clear profile</button>
+              <button class="btn btn--ghost" id="profile-back" type="button">Back to session</button>
+            </div>
+          </div>
+
+          <div class="cardlike">
+            <h2>Archetype summary</h2>
+            <div class="profileSummary" id="profile-results">
+              <div class="inspect__empty">Complete the quiz to generate your Enneagram + astrology resonance profile.</div>
+            </div>
+
+            <h2 style="margin-top: 14px;">Natal overlay (optional)</h2>
+            <p class="hint">
+              If you want “real astrology”, enter birth details. This computes only <strong>Sun sign</strong> locally (no external calls).
+            </p>
+            <div class="field">
+              <span>Birth date</span>
+              <input id="birth-date" type="date" />
+            </div>
+            <div class="field">
+              <span>Birth time (optional)</span>
+              <input id="birth-time" type="time" />
+            </div>
+            <div class="field">
+              <span>Birth place (optional)</span>
+              <input id="birth-place" placeholder="City, State/Country" />
+            </div>
+            <div class="row">
+              <button class="btn" id="save-natal" type="button">Save natal overlay</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <div class="modal hidden" id="modal">
@@ -166,6 +226,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260328b" defer></script>
+    <script src="./app.js?v=20260328c" defer></script>
   </body>
 </html>
