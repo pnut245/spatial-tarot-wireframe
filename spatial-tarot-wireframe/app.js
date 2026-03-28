@@ -154,10 +154,11 @@ const PLANES = [
 ];
 
 const PLANE_ACCENTS = {
-  understory: "rgba(167, 139, 250, 0.92)",
-  surface: "rgba(125, 211, 252, 0.92)",
-  horizon: "rgba(52, 211, 153, 0.92)",
-  none: "rgba(231, 238, 252, 0.5)"
+  // Matches the BRIC-inspired palette in styles.css
+  understory: "rgba(113, 62, 149, 0.92)", // purple
+  surface: "rgba(11, 11, 11, 0.82)", // ink
+  horizon: "rgba(0, 73, 83, 0.88)", // deep teal
+  none: "rgba(11, 11, 11, 0.35)"
 };
 
 const DEAL_SEQUENCE = (() => {

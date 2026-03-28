@@ -1,18 +1,32 @@
 :root {
-  --bg: #0b0f17;
-  --panel: #121a2a;
-  --panel2: #0f1626;
-  --text: #e7eefc;
-  --muted: #9db0d6;
-  --stroke: rgba(255, 255, 255, 0.12);
-  --accent: #7dd3fc;
-  --accent2: #a78bfa;
-  --good: #34d399;
-  --warn: #fbbf24;
-  --danger: #fb7185;
-  --shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  --radius: 14px;
+  /* BRIC-inspired palette (paper + ink + festival accents) */
+  --ink: #0b0b0b;
+  --paper: #fdfdfd;
+  --lav: #c2d1ff;
+  --purple: #713e95;
+  --lime: #bfedab;
+  --sun: #f4be18;
+  --orange: #f47920;
+  --teal: #63ceca;
+  --deep-teal: #004953;
+  --red: #d30000;
+
+  --bg: var(--paper);
+  --panel: var(--paper);
+  --panel2: rgba(11, 11, 11, 0.03);
+  --text: var(--ink);
+  --muted: rgba(11, 11, 11, 0.62);
+  --stroke: rgba(11, 11, 11, 0.16);
+  --accent: var(--lav);
+  --accent2: var(--purple);
+  --good: var(--teal);
+  --warn: var(--sun);
+  --danger: var(--red);
+  --shadow: 0 14px 0 rgba(11, 11, 11, 0.08);
+  --radius: 18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
 }
 
 * {
@@ -27,10 +41,10 @@ body {
 body {
   margin: 0;
   color: var(--text);
-  background: radial-gradient(900px 600px at 20% 10%, rgba(167, 139, 250, 0.18), transparent 65%),
-    radial-gradient(900px 600px at 70% 20%, rgba(125, 211, 252, 0.14), transparent 55%), var(--bg);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
-    "Segoe UI Emoji";
+  background: radial-gradient(900px 520px at 12% 0%, rgba(113, 62, 149, 0.12), transparent 60%),
+    radial-gradient(900px 520px at 78% 10%, rgba(194, 209, 255, 0.55), transparent 55%),
+    radial-gradient(700px 420px at 78% 92%, rgba(191, 237, 171, 0.42), transparent 58%), var(--bg);
+  font-family: var(--sans);
 }
 
 .topbar {
@@ -41,14 +55,15 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  border-bottom: 1px solid var(--stroke);
-  background: rgba(11, 15, 23, 0.76);
-  backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.92);
+  backdrop-filter: blur(8px);
 }
 
 .brand__title {
-  font-weight: 740;
-  letter-spacing: 0.2px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
 }
 
 .brand__subtitle {
@@ -95,8 +110,8 @@ body {
 }
 
 .cardlike {
-  border: 1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(18, 26, 42, 0.9), rgba(15, 22, 38, 0.92));
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.92);
   border-radius: var(--radius);
   padding: 14px;
   box-shadow: var(--shadow);
@@ -107,7 +122,7 @@ body {
   font-size: 14px;
   letter-spacing: 0.35px;
   text-transform: uppercase;
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .cardlike--details {
@@ -122,7 +137,7 @@ body {
   font-size: 14px;
   letter-spacing: 0.35px;
   text-transform: uppercase;
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.92);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -135,7 +150,7 @@ body {
 
 .cardlike--details > summary::after {
   content: "▸";
-  color: rgba(157, 176, 214, 0.95);
+  color: rgba(11, 11, 11, 0.6);
   transform: rotate(0deg);
   transition: transform 140ms ease;
 }
@@ -160,24 +175,24 @@ body {
 }
 
 .btn {
-  border: 1px solid var(--stroke);
-  background: rgba(15, 22, 38, 0.8);
-  color: var(--text);
-  border-radius: 10px;
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
+  color: var(--ink);
+  border-radius: 14px;
   padding: 9px 12px;
   cursor: pointer;
-  font-weight: 650;
-  letter-spacing: 0.2px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .btn:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(18, 26, 42, 0.9);
+  background: rgba(194, 209, 255, 0.55);
 }
 
 .btn--primary {
-  border-color: rgba(125, 211, 252, 0.4);
-  background: linear-gradient(180deg, rgba(125, 211, 252, 0.18), rgba(15, 22, 38, 0.8));
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .btn--ghost {
@@ -257,9 +272,9 @@ input,
 textarea {
   width: 100%;
   color: var(--text);
-  background: rgba(11, 15, 23, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
+  background: rgba(253, 253, 253, 0.95);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
   padding: 10px 10px;
   outline: none;
 }
@@ -286,16 +301,16 @@ textarea {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(11, 15, 23, 0.22);
-  color: rgba(231, 238, 252, 0.92);
+  border: 2px solid var(--ink);
+  background: rgba(194, 209, 255, 0.35);
+  color: rgba(11, 11, 11, 0.92);
   font-size: 12px;
   user-select: none;
 }
 
 .toggle input {
   width: auto;
-  accent-color: rgba(125, 211, 252, 0.9);
+  accent-color: var(--purple);
 }
 
 .toggle--range {
@@ -308,14 +323,14 @@ textarea {
 
 .toggle__value {
   font-family: var(--mono);
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.9);
   opacity: 0.9;
 }
 
 .profileProgress {
   font-family: var(--mono);
   font-size: 11px;
-  color: rgba(231, 238, 252, 0.78);
+  color: rgba(11, 11, 11, 0.72);
   margin-bottom: 8px;
 }
 
@@ -340,8 +355,8 @@ textarea {
 
 .choiceCard {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(11, 15, 23, 0.22);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
   padding: 10px;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
@@ -353,15 +368,14 @@ textarea {
 
 .choiceCard:hover {
   transform: translateY(-1px);
-  border-color: rgba(125, 211, 252, 0.35);
-  background: rgba(18, 26, 42, 0.55);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  background: rgba(194, 209, 255, 0.55);
+  box-shadow: 0 18px 0 rgba(11, 11, 11, 0.12);
 }
 
 .choiceCard__art {
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(11, 15, 23, 0.26);
+  border: 2px solid var(--ink);
+  background: rgba(194, 209, 255, 0.25);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -387,7 +401,7 @@ textarea {
 
 .profileSummary {
   font-size: 13px;
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.92);
   line-height: 1.5;
 }
 
@@ -398,18 +412,18 @@ textarea {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(11, 15, 23, 0.22);
+  border: 2px solid var(--ink);
+  background: rgba(194, 209, 255, 0.22);
   margin-top: 8px;
 }
 
 .kv__k {
-  color: rgba(157, 176, 214, 0.95);
+  color: rgba(11, 11, 11, 0.65);
 }
 
 .kv__v {
   font-family: var(--mono);
-  color: rgba(231, 238, 252, 0.92);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .hint {
@@ -422,7 +436,7 @@ textarea {
 .metrics {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 2px solid rgba(11, 11, 11, 0.12);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -438,12 +452,12 @@ textarea {
 }
 
 .metrics__label {
-  color: rgba(157, 176, 214, 0.92);
+  color: rgba(11, 11, 11, 0.65);
 }
 
 .metrics__value {
   font-family: var(--mono);
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .hand {
@@ -455,14 +469,14 @@ textarea {
 .tarot-card {
   user-select: none;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-left: 5px solid var(--plane-accent, rgba(231, 238, 252, 0.22));
+  border: 2px solid var(--ink);
+  border-left: 5px solid var(--plane-accent, rgba(11, 11, 11, 0.22));
   position: relative;
   min-height: 152px;
   aspect-ratio: 3 / 5;
   overflow: hidden;
   display: block;
-  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 0 rgba(11, 11, 11, 0.12);
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
   perspective: 980px;
 }
@@ -505,21 +519,21 @@ textarea {
 
 .tarot-card__face--back {
   transform: rotateY(0deg);
-  background: radial-gradient(520px 220px at 25% 20%, rgba(167, 139, 250, 0.12), transparent 55%),
-    radial-gradient(520px 220px at 75% 30%, rgba(125, 211, 252, 0.1), transparent 60%),
+  background: radial-gradient(520px 220px at 25% 20%, rgba(113, 62, 149, 0.16), transparent 55%),
+    radial-gradient(520px 220px at 75% 30%, rgba(194, 209, 255, 0.55), transparent 60%),
     repeating-linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 6px,
+      rgba(11, 11, 11, 0.06) 0px,
+      rgba(11, 11, 11, 0.06) 6px,
       transparent 6px,
       transparent 12px
     ),
-    rgba(11, 15, 23, 0.26);
+    rgba(253, 253, 253, 0.92);
 }
 
 .tarot-card__face--front {
   transform: rotateY(180deg);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(0, 0, 0, 0.14));
+  background: rgba(253, 253, 253, 0.95);
 }
 
 .tarot-card[data-face-up="true"] .tarot-card__inner {
@@ -580,9 +594,9 @@ textarea {
   font-size: 11px;
   padding: 5px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(11, 15, 23, 0.4);
-  color: rgba(231, 238, 252, 0.88);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
+  color: rgba(11, 11, 11, 0.9);
 }
 
 .tarot-card__badges {
@@ -597,24 +611,21 @@ textarea {
   font-size: 10px;
   padding: 4px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(11, 15, 23, 0.45);
-  color: rgba(231, 238, 252, 0.88);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
+  color: rgba(11, 11, 11, 0.9);
 }
 
 .badge--up {
-  border-color: rgba(52, 211, 153, 0.42);
-  color: rgba(52, 211, 153, 0.95);
+  background: rgba(99, 206, 202, 0.25);
 }
 
 .badge--down {
-  border-color: rgba(125, 211, 252, 0.3);
-  color: rgba(125, 211, 252, 0.95);
+  background: rgba(194, 209, 255, 0.65);
 }
 
 .badge--rev {
-  border-color: rgba(251, 113, 133, 0.5);
-  color: rgba(251, 113, 133, 0.95);
+  background: rgba(211, 0, 0, 0.16);
 }
 
 .tarot-card__glyph {
@@ -623,12 +634,12 @@ textarea {
   flex: 1;
   display: grid;
   place-items: center;
-  color: var(--plane-accent, rgba(231, 238, 252, 0.82));
+  color: var(--plane-accent, rgba(11, 11, 11, 0.82));
   opacity: 0.95;
 }
 
 .tarot-card__glyph--back {
-  color: rgba(231, 238, 252, 0.6);
+  color: rgba(11, 11, 11, 0.62);
   opacity: 0.9;
 }
 
@@ -656,13 +667,13 @@ textarea {
 }
 
 .tarot-card--selected {
-  outline: 2px solid rgba(125, 211, 252, 0.55);
-  box-shadow: 0 0 0 6px rgba(125, 211, 252, 0.08);
+  outline: 3px solid rgba(113, 62, 149, 0.55);
+  box-shadow: 0 0 0 6px rgba(194, 209, 255, 0.28);
 }
 
 .stage {
-  border: 1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(18, 26, 42, 0.65), rgba(15, 22, 38, 0.62));
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.9);
   border-radius: var(--radius);
   padding: 14px;
   box-shadow: var(--shadow);
@@ -701,21 +712,22 @@ textarea {
 }
 
 .pill {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 2px solid var(--ink);
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 12px;
-  color: rgba(231, 238, 252, 0.95);
+  color: rgba(11, 11, 11, 0.95);
+  background: rgba(253, 253, 253, 0.95);
 }
 
 .pill--u {
-  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(113, 62, 149, 0.12);
 }
 .pill--s {
-  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(194, 209, 255, 0.55);
 }
 .pill--h {
-  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(99, 206, 202, 0.35);
 }
 
 .boardWrap {
@@ -731,18 +743,18 @@ textarea {
 
 .board__corner {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(11, 15, 23, 0.22);
+  border: 2px solid var(--ink);
+  background: rgba(194, 209, 255, 0.35);
   padding: 10px;
-  color: rgba(231, 238, 252, 0.78);
+  color: rgba(11, 11, 11, 0.82);
   font-size: 12px;
   line-height: 1.35;
 }
 
 .board__header {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(11, 15, 23, 0.22);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
   padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
@@ -759,24 +771,24 @@ textarea {
 .board__code {
   font-family: var(--mono);
   font-size: 12px;
-  color: rgba(231, 238, 252, 0.9);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .board__headerLabel {
-  color: rgba(157, 176, 214, 0.92);
+  color: rgba(11, 11, 11, 0.62);
   font-size: 12px;
   line-height: 1.3;
 }
 
 .board__header--active {
-  border-color: rgba(167, 139, 250, 0.55);
-  box-shadow: 0 0 0 6px rgba(167, 139, 250, 0.08);
+  background: rgba(194, 209, 255, 0.65);
+  box-shadow: 0 0 0 6px rgba(194, 209, 255, 0.28);
 }
 
 .board__rowLabel {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(11, 15, 23, 0.22);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.95);
   padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
@@ -789,26 +801,26 @@ textarea {
 }
 
 .board__rowTitle--understory {
-  color: rgba(167, 139, 250, 0.95);
+  color: var(--purple);
 }
 .board__rowTitle--surface {
-  color: rgba(125, 211, 252, 0.95);
+  color: rgba(11, 11, 11, 0.92);
 }
 .board__rowTitle--horizon {
-  color: rgba(52, 211, 153, 0.95);
+  color: var(--deep-teal);
 }
 
 .board__rowSub {
-  color: rgba(157, 176, 214, 0.9);
+  color: rgba(11, 11, 11, 0.62);
   font-size: 12px;
   line-height: 1.3;
 }
 
 .slot {
   border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.22);
-  background: rgba(11, 15, 23, 0.18);
-  border-left: 5px solid var(--plane-accent, rgba(231, 238, 252, 0.22));
+  border: 2px dashed rgba(11, 11, 11, 0.4);
+  background: rgba(253, 253, 253, 0.85);
+  border-left: 5px solid var(--plane-accent, rgba(11, 11, 11, 0.22));
   padding: 10px;
   min-height: 190px;
   display: flex;
@@ -823,7 +835,7 @@ textarea {
 
 .slot__label {
   font-size: 12px;
-  color: rgba(157, 176, 214, 0.92);
+  color: rgba(11, 11, 11, 0.62);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -838,24 +850,24 @@ textarea {
 
 .slot__drop {
   font-size: 12px;
-  color: rgba(157, 176, 214, 0.75);
+  color: rgba(11, 11, 11, 0.55);
   text-align: center;
 }
 
 .slot--active {
-  border-color: rgba(125, 211, 252, 0.65);
-  background: rgba(125, 211, 252, 0.08);
+  border-color: rgba(113, 62, 149, 0.65);
+  background: rgba(194, 209, 255, 0.35);
 }
 
 .slot--next {
   border-style: solid;
-  border-color: rgba(251, 191, 36, 0.6);
-  box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.08);
+  border-color: rgba(244, 190, 24, 0.85);
+  box-shadow: 0 0 0 6px rgba(244, 190, 24, 0.18);
 }
 
 .slot--corresponding {
-  outline: 2px solid rgba(167, 139, 250, 0.55);
-  box-shadow: 0 0 0 6px rgba(167, 139, 250, 0.08);
+  outline: 2px solid rgba(113, 62, 149, 0.55);
+  box-shadow: 0 0 0 6px rgba(113, 62, 149, 0.12);
 }
 
 .slot--occupied {
@@ -920,32 +932,32 @@ textarea {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(11, 15, 23, 0.3);
+  border: 2px solid var(--ink);
+  background: rgba(194, 209, 255, 0.22);
 }
 
 .stack__plane {
   font-size: 12px;
   font-weight: 740;
-  color: rgba(231, 238, 252, 0.92);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .stack__plane--understory {
-  color: rgba(167, 139, 250, 0.95);
+  color: var(--purple);
 }
 
 .stack__plane--surface {
-  color: rgba(125, 211, 252, 0.95);
+  color: rgba(11, 11, 11, 0.92);
 }
 
 .stack__plane--horizon {
-  color: rgba(52, 211, 153, 0.95);
+  color: var(--deep-teal);
 }
 
 .stack__card {
   flex: 1;
   text-align: right;
-  color: rgba(231, 238, 252, 0.88);
+  color: rgba(11, 11, 11, 0.9);
   font-size: 12px;
 }
 
@@ -959,16 +971,17 @@ textarea {
   font-size: 12px;
   padding: 6px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(231, 238, 252, 0.9);
+  border: 2px solid var(--ink);
+  color: rgba(11, 11, 11, 0.9);
+  background: rgba(253, 253, 253, 0.95);
 }
 
 .tag--plane {
-  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(194, 209, 255, 0.55);
 }
 
 .tag--slot {
-  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(113, 62, 149, 0.12);
 }
 
 .log {
@@ -976,17 +989,17 @@ textarea {
   overflow: auto;
   font-family: var(--mono);
   font-size: 11px;
-  color: rgba(231, 238, 252, 0.85);
+  color: rgba(11, 11, 11, 0.82);
   line-height: 1.45;
   padding: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(11, 15, 23, 0.38);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.92);
 }
 
 .log__row {
   padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(11, 11, 11, 0.1);
 }
 
 .modal {
@@ -1009,8 +1022,8 @@ textarea {
   max-height: min(80vh, 680px);
   overflow: hidden;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(18, 26, 42, 0.95);
+  border: 2px solid var(--ink);
+  background: rgba(253, 253, 253, 0.98);
   box-shadow: var(--shadow);
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -1023,11 +1036,11 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid var(--ink);
 }
 
 .modal__footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid var(--ink);
   border-bottom: none;
 }
 
@@ -1041,6 +1054,6 @@ textarea {
   overflow: auto;
   font-family: var(--mono);
   font-size: 12px;
-  color: rgba(231, 238, 252, 0.9);
-  background: rgba(11, 15, 23, 0.4);
+  color: rgba(11, 11, 11, 0.92);
+  background: rgba(194, 209, 255, 0.22);
 }
