@@ -345,6 +345,14 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms | 0)));
 }
 
+function isNonEmptyQuestion(state) {
+  return (state.question ?? "").toString().trim().length > 0;
+}
+
+function hasSubmittedQuestion(state) {
+  return Boolean(state.session?.question_submitted_at);
+}
+
 function getDealDelayMs() {
   const el = byId("deal-delay");
   const n = Number.parseInt(el?.value ?? "0", 10);
@@ -382,6 +390,9 @@ function defaultState(deck) {
     session_id: uid("session"),
     user_id: getOrCreateUserId(),
     created_at: nowIso(),
+    session: {
+      question_submitted_at: null
+    },
     question: "",
     rng: { seed: seedFromCryptoOrTime(), state: null, calls: 0 },
     deck_id: deck.deck_id,
@@ -1008,6 +1019,7 @@ function updateDealDelayLabel() {
 }
 
 async function dealToBoardWithDelay(state, count, { kind }) {
+  if (!hasSubmittedQuestion(state)) return;
   state.ui ||= {};
   state.ui.dealing = true;
   const jobId = uid("dealjob");
@@ -1342,17 +1354,29 @@ function exportState(state) {
 function renderAll(state) {
   const questionEl = byId("question");
   if (questionEl) questionEl.value = state.question ?? "";
+  if (questionEl) questionEl.disabled = hasSubmittedQuestion(state);
+
+  const submitBtn = byId("submit-question");
+  const qHint = byId("question-hint");
+  const isDealing = Boolean(state.ui?.dealing);
+  const valid = isNonEmptyQuestion(state);
+  const submitted = hasSubmittedQuestion(state);
+  if (submitBtn) submitBtn.disabled = isDealing || submitted || !valid;
+  if (qHint) {
+    if (submitted) qHint.textContent = "Question submitted. Use the controls below for clarifiers.";
+    else if (!valid) qHint.textContent = "Enter a question to begin.";
+    else qHint.textContent = "Ready. Submit to deal the spread.";
+  }
 
   const noteEl = byId("note");
   const selected = state.ui.selected_instance_id;
   if (noteEl) noteEl.value = selected ? state.notes[selected]?.text ?? "" : "";
 
   updateDealDelayLabel();
-  const isDealing = Boolean(state.ui?.dealing);
   const dealBtns = ["deal-next", "deal-full"];
   for (const id of dealBtns) {
     const btn = byId(id);
-    if (btn) btn.disabled = isDealing;
+    if (btn) btn.disabled = isDealing || !submitted;
   }
   const delayEl = byId("deal-delay");
   if (delayEl) delayEl.disabled = isDealing;
@@ -1463,10 +1487,35 @@ function wireControls(state, deck) {
       state.question = value;
       addEvent(state, "question.update", { value: clampText(value, 280) });
       saveState(state);
+      renderAll(state);
+    });
+  if (questionEl)
+    questionEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const btn = byId("submit-question");
+      if (btn && !btn.disabled) btn.click();
     });
 
+  const submitBtn = byId("submit-question");
+  if (submitBtn)
+    submitBtn.onclick = () => {
+      if (!isNonEmptyQuestion(state)) return;
+      state.session ||= { question_submitted_at: null };
+      if (state.session.question_submitted_at) return;
+      state.session.question_submitted_at = nowIso();
+      addEvent(state, "question.submit", { value: clampText(state.question, 280) });
+      saveState(state);
+      renderAll(state);
+      void dealToBoardWithDelay(state, 12, { kind: "opening" });
+    };
+
   const dealNext = byId("deal-next");
-  if (dealNext) dealNext.onclick = () => dealToBoardWithDelay(state, 1, { kind: "draw" });
+  if (dealNext)
+    dealNext.onclick = () => {
+      if (!hasSubmittedQuestion(state)) return;
+      void dealToBoardWithDelay(state, 1, { kind: "clarifier" });
+    };
 
   const dealDelay = byId("deal-delay");
   if (dealDelay)
@@ -1479,6 +1528,7 @@ function wireControls(state, deck) {
   const dealFull = byId("deal-full");
   if (dealFull)
     dealFull.onclick = () => {
+      if (!hasSubmittedQuestion(state)) return;
       // Fill as many empty slots as possible, up to 12, with delays between cards.
       const next = nextEmptyDealSlot(state);
       if (!next) return;
@@ -1724,6 +1774,8 @@ async function main() {
   state.seq ||= { next_draw_number: 1 };
   ensureRng(state);
   state.user_id ||= getOrCreateUserId();
+  state.session ||= { question_submitted_at: null };
+  state.session.question_submitted_at ??= null;
   state.profile ||= defaultState(deck).profile;
   state.profile.quiz ||= { answers: {} };
   state.profile.onboarding_completed_at ??= null;

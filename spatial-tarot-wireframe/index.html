@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spatial Tarot (3D Web Wireframe)</title>
-    <link rel="stylesheet" href="./styles.css?v=20260328b" />
+    <link rel="stylesheet" href="./styles.css?v=20260328f" />
   </head>
   <body>
     <header class="topbar">
@@ -58,80 +58,56 @@
       </section>
 
       <section class="panel panel--session hidden" id="screen-session">
-        <div class="session__left">
-          <div class="cardlike">
-            <h2>Session</h2>
-            <label class="field">
-              <span>Question / intention</span>
-              <input id="question" placeholder="What do I need to understand about…?" />
-            </label>
-            <div class="row">
-              <button class="btn btn--primary" id="deal-next" type="button">Next card</button>
+        <div class="sessionQuestion cardlike">
+          <h2>Question / intention</h2>
+          <div class="sessionQuestion__row">
+            <input
+              id="question"
+              class="sessionQuestion__input"
+              placeholder="Type your question… (required to deal)"
+              autocomplete="off"
+            />
+            <button class="btn btn--primary sessionQuestion__submit" id="submit-question" type="button" disabled>
+              Deal cards
+            </button>
+          </div>
+          <div class="hint" id="question-hint">Enter a question to begin.</div>
+        </div>
+
+        <div class="stage stage--full">
+          <div class="stage__legend">
+            <div class="legend">
+              <span class="pill pill--u">Understory</span>
+              <span class="pill pill--s">Surface</span>
+              <span class="pill pill--h">Horizon</span>
             </div>
+            <div class="legend__help">
+              <div><strong>Planes:</strong> Understory = hidden drivers · Surface = present · Horizon = trajectory</div>
+              <div><strong>Correspondence:</strong> same letter (A/B/C/D) across planes is read as a vertical “stack”</div>
+            </div>
+          </div>
+
+          <div class="boardWrap" aria-label="Volumetric spread (graphic grid)">
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+
+        <div class="sessionBelow">
+          <div class="cardlike">
+            <h2>Controls</h2>
             <div class="row row--tight">
-              <div class="toggle" aria-label="Auto-deal status">
-                <span>Auto-deal: ON (A→D stacks)</span>
-              </div>
               <label class="toggle toggle--range">
                 <span>Deal pace</span>
                 <input id="deal-delay" type="range" min="0" max="2000" step="100" value="900" />
                 <span class="toggle__value" id="deal-delay-value">900ms</span>
               </label>
-              <button class="btn" id="deal-full" type="button">Deal full (12)</button>
+              <button class="btn" id="deal-next" type="button" disabled>Next card</button>
+              <button class="btn" id="deal-full" type="button" disabled>Deal full (12)</button>
             </div>
-            <div class="hint">
-              Auto-draw places the next card <strong>face-down</strong>, then <strong>flips to reveal</strong> after a beat.
-            </div>
+            <div class="hint">Dealing is face-down → flip to reveal. Submit question deals the first spread.</div>
             <div class="metrics" id="metrics"></div>
           </div>
 
-          <div class="cardlike">
-            <h2>Reader profile</h2>
-            <div class="hint" id="profile-summary">Not set yet. Use Profile to choose a visual style and (optional) natal overlay.</div>
-            <div class="row" style="margin-top: 10px;">
-              <button class="btn" id="open-profile" type="button">Open profile</button>
-            </div>
-          </div>
-
-          <div class="cardlike">
-            <h2>Hand</h2>
-            <div class="hand" id="hand"></div>
-            <div class="hint">
-              Overflow only (if the board is full). Select a card to inspect.
-            </div>
-          </div>
-
-          <details class="cardlike cardlike--details">
-            <summary>Debug (event log)</summary>
-            <div class="cardlike--details__body">
-              <div class="log" id="log"></div>
-            </div>
-          </details>
-        </div>
-
-        <div class="session__center">
-          <div class="stage">
-            <div class="stage__legend">
-              <div class="legend">
-                <span class="pill pill--u">Understory</span>
-                <span class="pill pill--s">Surface</span>
-                <span class="pill pill--h">Horizon</span>
-              </div>
-              <div class="legend__help">
-                <div><strong>Planes:</strong> Understory = hidden drivers · Surface = present · Horizon = trajectory</div>
-                <div>
-                  <strong>Correspondence:</strong> same letter (A/B/C/D) across planes is read as a vertical “stack”
-                </div>
-              </div>
-            </div>
-
-            <div class="boardWrap" aria-label="Volumetric spread (graphic grid)">
-              <div class="board" id="board"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="session__right">
           <div class="cardlike">
             <h2>Inspect</h2>
             <div class="inspect" id="inspect">
@@ -157,6 +133,27 @@
               <button class="btn" id="clear-note" type="button">Clear</button>
             </div>
           </div>
+
+          <div class="cardlike">
+            <h2>Hand</h2>
+            <div class="hand" id="hand"></div>
+            <div class="hint">Overflow only (if the board is full). Select a card to inspect.</div>
+          </div>
+
+          <div class="cardlike">
+            <h2>Reader profile</h2>
+            <div class="hint" id="profile-summary">Not set yet. Use Profile to choose a visual style and (optional) natal overlay.</div>
+            <div class="row" style="margin-top: 10px;">
+              <button class="btn" id="open-profile" type="button">Open profile</button>
+            </div>
+          </div>
+
+          <details class="cardlike cardlike--details">
+            <summary>Debug (event log)</summary>
+            <div class="cardlike--details__body">
+              <div class="log" id="log"></div>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -230,6 +227,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260328d" defer></script>
+    <script src="./app.js?v=20260328f" defer></script>
   </body>
 </html>
