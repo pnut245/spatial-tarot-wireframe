@@ -215,6 +215,33 @@ textarea {
   line-height: 1.4;
 }
 
+.metrics {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metrics__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metrics__label {
+  color: rgba(157, 176, 214, 0.92);
+}
+
+.metrics__value {
+  font-family: var(--mono);
+  color: rgba(231, 238, 252, 0.9);
+}
+
 .hand {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -278,6 +305,18 @@ textarea {
 .legend__help {
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+@media (max-width: 980px) {
+  .stage__legend {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .legend__help {
+    text-align: left;
+  }
 }
 
 .pill {
@@ -422,6 +461,70 @@ textarea {
   flex-wrap: wrap;
 }
 
+.correspondence {
+  min-height: 150px;
+}
+
+.correspondence__title {
+  font-weight: 820;
+  margin-bottom: 6px;
+}
+
+.correspondence__hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stack__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 15, 23, 0.3);
+}
+
+.stack__plane {
+  font-size: 12px;
+  font-weight: 740;
+  color: rgba(231, 238, 252, 0.92);
+}
+
+.stack__plane--understory {
+  color: rgba(167, 139, 250, 0.95);
+}
+
+.stack__plane--surface {
+  color: rgba(125, 211, 252, 0.95);
+}
+
+.stack__plane--horizon {
+  color: rgba(52, 211, 153, 0.95);
+}
+
+.stack__card {
+  flex: 1;
+  text-align: right;
+  color: rgba(231, 238, 252, 0.88);
+  font-size: 12px;
+}
+
+.stack__empty {
+  opacity: 0.8;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .tag {
   font-size: 12px;
   padding: 6px 8px;
@@ -511,4 +614,3 @@ textarea {
   color: rgba(231, 238, 252, 0.9);
   background: rgba(11, 15, 23, 0.4);
 }
-

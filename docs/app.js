@@ -196,9 +196,15 @@ function defaultState(deck) {
     instances: {}, // instanceId => {id, card_id, face_up, reversed, plane, slot_code, note, drawn_at}
     notes: {}, // instanceId => {text, updated_at}
     events: [], // append-only log for export/replay
+    metrics: {
+      first_draw_at: null,
+      first_place_at: null
+    },
     ui: {
       selected_instance_id: null,
-      selected_hand_instance_id: null
+      selected_hand_instance_id: null,
+      hovered_slot_code: null,
+      hovered_plane: null
     },
     _cardById: cardById
   };
@@ -211,6 +217,54 @@ function addEvent(state, type, payload = {}) {
     type,
     payload
   });
+}
+
+function formatDurationMs(ms) {
+  if (ms === null || ms === undefined || Number.isNaN(ms)) return "—";
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m > 0) return `${m}:${s.toString().padStart(2, "0")}`;
+  return `${s}s`;
+}
+
+function msBetweenIso(a, b) {
+  if (!a || !b) return null;
+  const ams = Date.parse(a);
+  const bms = Date.parse(b);
+  if (Number.isNaN(ams) || Number.isNaN(bms)) return null;
+  return bms - ams;
+}
+
+function getSlotDef(code) {
+  return SLOT_DEFS.find((s) => s.code === code) ?? null;
+}
+
+function getActiveSlotCode(state) {
+  const hovered = state.ui?.hovered_slot_code;
+  if (hovered) return hovered;
+  const selectedId = state.ui?.selected_instance_id;
+  const selectedInst = selectedId ? state.instances[selectedId] : null;
+  return selectedInst?.slot_code ?? null;
+}
+
+function updateCorrespondenceHighlight(state) {
+  const activeCode = getActiveSlotCode(state);
+  const allSlots = document.querySelectorAll(".slot");
+  for (const s of allSlots) s.classList.toggle("slot--corresponding", Boolean(activeCode) && s.dataset.code === activeCode);
+}
+
+function setHoveredSlot(state, { plane, code, on }) {
+  state.ui ||= {};
+  if (on) {
+    state.ui.hovered_slot_code = code;
+    state.ui.hovered_plane = plane;
+  } else if (state.ui.hovered_slot_code === code && state.ui.hovered_plane === plane) {
+    state.ui.hovered_slot_code = null;
+    state.ui.hovered_plane = null;
+  }
+  updateCorrespondenceHighlight(state);
+  renderCorrespondence(state);
 }
 
 function ensureSlotContainers() {
@@ -316,10 +370,10 @@ function renderSlots(state) {
       slot.appendChild(cardDiv);
     }
 
-    slot.onmouseenter = () => highlightCorrespondence(state, { plane, code, on: true });
-    slot.onmouseleave = () => highlightCorrespondence(state, { plane, code, on: false });
-    slot.onfocus = () => highlightCorrespondence(state, { plane, code, on: true });
-    slot.onblur = () => highlightCorrespondence(state, { plane, code, on: false });
+    slot.onmouseenter = () => setHoveredSlot(state, { plane, code, on: true });
+    slot.onmouseleave = () => setHoveredSlot(state, { plane, code, on: false });
+    slot.onfocus = () => setHoveredSlot(state, { plane, code, on: true });
+    slot.onblur = () => setHoveredSlot(state, { plane, code, on: false });
 
     slot.ondragover = (e) => {
       e.preventDefault();
@@ -342,11 +396,6 @@ function renderSlots(state) {
       placeIntoSlot(state, selectedFromHand, plane, code);
     };
   }
-}
-
-function highlightCorrespondence(_state, { code, on }) {
-  const allSlots = document.querySelectorAll(`.slot[data-code="${code}"]`);
-  for (const s of allSlots) s.classList.toggle("slot--corresponding", on);
 }
 
 function placeIntoSlot(state, instanceId, plane, code) {
@@ -374,6 +423,9 @@ function placeIntoSlot(state, instanceId, plane, code) {
   state.instances[instanceId].slot_code = code;
   state.ui.selected_hand_instance_id = null;
   state.ui.selected_instance_id = instanceId;
+
+  state.metrics ||= { first_draw_at: null, first_place_at: null };
+  if (!state.metrics.first_place_at) state.metrics.first_place_at = nowIso();
 
   addEvent(state, "place", { instance_id: instanceId, plane, slot_code: code });
   saveState(state);
@@ -452,6 +504,64 @@ function renderLog(state) {
   }
 }
 
+function renderMetrics(state) {
+  const el = document.getElementById("metrics");
+  if (!el) return;
+
+  const drawnCount = Object.keys(state.instances).length;
+  const placedCount = Object.keys(state.placed).length;
+  const blockedCount = state.events.filter((e) => e.type === "place.blocked").length;
+  const ms = msBetweenIso(state.metrics?.first_draw_at, state.metrics?.first_place_at);
+
+  el.innerHTML = `
+    <div class="metrics__row"><span class="metrics__label">Drawn</span><span class="metrics__value">${drawnCount}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Placed</span><span class="metrics__value">${placedCount}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Blocked</span><span class="metrics__value">${blockedCount}</span></div>
+    <div class="metrics__row"><span class="metrics__label">First placement (from draw)</span><span class="metrics__value">${formatDurationMs(ms)}</span></div>
+  `;
+}
+
+function renderCorrespondence(state) {
+  const el = document.getElementById("correspondence");
+  if (!el) return;
+
+  const code = getActiveSlotCode(state);
+  if (!code) {
+    el.innerHTML = `<div class="inspect__empty">Hover a slot (A/B/C/D) to see the vertical stack across planes.</div>`;
+    return;
+  }
+
+  const def = getSlotDef(code);
+  const label = def ? def.label : "Slot";
+
+  const rows = PLANES.map((p) => {
+    const key = `${p.id}:${code}`;
+    const instanceId = state.placed[key];
+    if (!instanceId) return { plane: p, text: "— empty —", empty: true };
+    const inst = state.instances[instanceId];
+    const card = state._cardById[inst.card_id];
+    const suffix = inst.reversed ? " (reversed)" : "";
+    return { plane: p, text: `${card.name}${suffix}`, empty: false };
+  });
+
+  el.innerHTML = `
+    <div class="correspondence__title">Slot ${code} — ${label}</div>
+    <div class="correspondence__hint">Read down the stack: hidden → present → trajectory.</div>
+    <div class="stack">
+      ${rows
+        .map(
+          (r) => `
+        <div class="stack__row">
+          <div class="stack__plane stack__plane--${r.plane.id}">${r.plane.label}</div>
+          <div class="stack__card ${r.empty ? "stack__empty" : ""}">${r.text}</div>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function downloadJson(filename, obj) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -462,11 +572,12 @@ function downloadJson(filename, obj) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function openModal({ title, text, onDownload }) {
+function openModal({ title, text, onDownload, downloadLabel }) {
   const modal = document.getElementById("modal");
   const pre = document.getElementById("modal-pre");
   const titleEl = document.getElementById("modal-title");
   const dl = document.getElementById("download-json");
+  const footer = dl.closest(".modal__footer");
 
   titleEl.textContent = title;
   pre.textContent = text;
@@ -475,10 +586,18 @@ function openModal({ title, text, onDownload }) {
   const close = () => modal.classList.add("hidden");
   document.getElementById("modal-close").onclick = close;
   document.getElementById("modal-backdrop").onclick = close;
-  dl.onclick = onDownload ?? (() => {});
+
+  const hasDownload = typeof onDownload === "function";
+  footer?.classList.toggle("hidden", !hasDownload);
+  dl.textContent = downloadLabel ?? "Download JSON";
+  dl.onclick = hasDownload ? onDownload : () => {};
 }
 
 function exportState(state) {
+  const drawnCount = Object.keys(state.instances).length;
+  const placedCount = Object.keys(state.placed).length;
+  const blockedCount = state.events.filter((e) => e.type === "place.blocked").length;
+  const timeToFirstPlaceMs = msBetweenIso(state.metrics?.first_draw_at, state.metrics?.first_place_at);
   const exportable = {
     version: state.version,
     session_id: state.session_id,
@@ -490,6 +609,14 @@ function exportState(state) {
       type: "volumetric_cross_wireframe",
       planes: PLANES.map((p) => p.id),
       slots: SLOT_DEFS.map((s) => s.code)
+    },
+    metrics: {
+      drawn_count: drawnCount,
+      placed_count: placedCount,
+      place_blocked_count: blockedCount,
+      first_draw_at: state.metrics?.first_draw_at ?? null,
+      first_place_at: state.metrics?.first_place_at ?? null,
+      time_to_first_place_ms: timeToFirstPlaceMs
     },
     instances: state.instances,
     placed: state.placed,
@@ -508,7 +635,10 @@ function renderAll(state) {
 
   renderHand(state);
   renderSlots(state);
+  updateCorrespondenceHighlight(state);
   renderInspect(state);
+  renderCorrespondence(state);
+  renderMetrics(state);
   renderLog(state);
 }
 
@@ -541,6 +671,12 @@ function drawCards(state, count, { kind }) {
     addEvent(state, "draw", { instance_id: instanceId, card_id: cardId, kind });
   }
   if (drawn.length === 0) addEvent(state, "draw.none", { kind });
+
+  state.metrics ||= { first_draw_at: null, first_place_at: null };
+  if (drawn.length > 0 && !state.metrics.first_draw_at) {
+    state.metrics.first_draw_at = state.instances[drawn[0]].drawn_at;
+  }
+
   state.ui.selected_hand_instance_id = drawn[0] ?? state.ui.selected_hand_instance_id;
   state.ui.selected_instance_id = drawn[0] ?? state.ui.selected_instance_id;
   saveState(state);
@@ -565,12 +701,36 @@ function wireControls(state, deck) {
   document.getElementById("nav-home").onclick = () => showScreen("home");
   document.getElementById("nav-session").onclick = () => showScreen("session");
 
+  document.getElementById("nav-help").onclick = () => {
+    addEvent(state, "ui.help", {});
+    saveState(state);
+    openModal({
+      title: "Help (Volumetric Cross)",
+      text:
+        "Planes are discrete layers:\\n" +
+        "- Understory: hidden drivers / subconscious influences\\n" +
+        "- Surface: present snapshot\\n" +
+        "- Horizon: likely trajectory / advice\\n\\n" +
+        "Correspondence = same slot letter (A/B/C/D) across planes.\\n" +
+        "Hover a slot to highlight the vertical stack + see it in the Correspondence panel.\\n\\n" +
+        "Input:\\n" +
+        "- Drag a card onto a slot\\n" +
+        "- Or click a card, then click a slot\\n\\n" +
+        "Inspect:\\n" +
+        "- Select a card to flip/reverse + add a note\\n\\n" +
+        "Export:\\n" +
+        "- Use Export JSON to share the session log + snapshot.",
+      onDownload: null
+    });
+  };
+
   document.getElementById("nav-export").onclick = () => {
     const exported = exportState(state);
     openModal({
       title: "Export (copy/paste or download)",
       text: JSON.stringify(exported, null, 2),
-      onDownload: () => downloadJson(`spatial-tarot-${state.session_id}.json`, exported)
+      onDownload: () => downloadJson(`spatial-tarot-${state.session_id}.json`, exported),
+      downloadLabel: "Download JSON"
     });
   };
 
@@ -630,7 +790,15 @@ async function main() {
   state.placed ||= {};
   state.hand ||= [];
   state.remaining ||= deck.cards.map((c) => c.id);
-  state.ui ||= { selected_instance_id: null, selected_hand_instance_id: null };
+  state.metrics ||= { first_draw_at: null, first_place_at: null };
+  state.ui ||= {
+    selected_instance_id: null,
+    selected_hand_instance_id: null,
+    hovered_slot_code: null,
+    hovered_plane: null
+  };
+  state.ui.hovered_slot_code ??= null;
+  state.ui.hovered_plane ??= null;
 
   wireControls(state, deck);
 
