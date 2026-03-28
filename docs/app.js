@@ -160,6 +160,17 @@ const PLANE_ACCENTS = {
   none: "rgba(231, 238, 252, 0.5)"
 };
 
+const DEAL_SEQUENCE = (() => {
+  // Fill by correspondence stack (A→D), and within each stack fill hidden→present→trajectory.
+  const order = [];
+  for (const slot of SLOT_DEFS) {
+    for (const plane of PLANES) {
+      order.push({ plane: plane.id, code: slot.code });
+    }
+  }
+  return order;
+})();
+
 function planeLabel(planeId) {
   return PLANES.find((p) => p.id === planeId)?.label ?? "Hand";
 }
@@ -260,6 +271,49 @@ function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
+function seedFromCryptoOrTime() {
+  try {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return buf[0] || (Date.now() >>> 0);
+  } catch {
+    // Fallback if crypto isn't available.
+    return ((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0) || 1;
+  }
+}
+
+function ensureRng(state) {
+  state.rng ||= { seed: null, state: null, calls: 0 };
+  if (!Number.isFinite(state.rng.seed)) state.rng.seed = seedFromCryptoOrTime();
+  if (!Number.isFinite(state.rng.state) || state.rng.state === 0) {
+    // xorshift32 cannot start with 0
+    state.rng.state = (state.rng.seed >>> 0) || 1;
+  }
+  if (!Number.isFinite(state.rng.calls)) state.rng.calls = 0;
+}
+
+function rngUint32(state) {
+  ensureRng(state);
+  // xorshift32
+  let x = state.rng.state >>> 0;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  state.rng.state = x >>> 0;
+  state.rng.calls += 1;
+  return state.rng.state;
+}
+
+function rngFloat01(state) {
+  // [0, 1)
+  return rngUint32(state) / 4294967296;
+}
+
+function rngInt(state, maxExclusive) {
+  if (maxExclusive <= 0) return 0;
+  return Math.floor(rngFloat01(state) * maxExclusive);
+}
+
 function clampText(value, max = 140) {
   const s = (value ?? "").toString().trim();
   if (!s) return "";
@@ -288,7 +342,7 @@ function defaultState(deck) {
     session_id: uid("session"),
     created_at: nowIso(),
     question: "",
-    rng_seed: null,
+    rng: { seed: seedFromCryptoOrTime(), state: null, calls: 0 },
     deck_id: deck.deck_id,
     remaining: deck.cards.map((c) => c.id),
     seq: {
@@ -429,6 +483,14 @@ function ensureSlotContainers() {
   }
 }
 
+function nextEmptyDealSlot(state) {
+  for (const step of DEAL_SEQUENCE) {
+    const key = `${step.plane}:${step.code}`;
+    if (!state.placed[key]) return step;
+  }
+  return null;
+}
+
 function renderHand(state) {
   const handEl = byId("hand");
   if (!handEl) return;
@@ -470,6 +532,10 @@ function renderHand(state) {
 }
 
 function renderSlots(state) {
+  const autoDeal = Boolean(byId("auto-deal")?.checked);
+  const next = autoDeal ? nextEmptyDealSlot(state) : null;
+  const nextKey = next ? `${next.plane}:${next.code}` : null;
+
   const allSlots = document.querySelectorAll(".slot");
   for (const slot of allSlots) {
     const plane = slot.dataset.plane;
@@ -480,9 +546,10 @@ function renderSlots(state) {
     slot.classList.toggle("slot--occupied", Boolean(instanceId));
     slot.classList.toggle("slot--empty", !instanceId);
     slot.classList.remove("slot--active");
+    slot.classList.toggle("slot--next", Boolean(nextKey) && !instanceId && key === nextKey);
 
     const dropText = slot.querySelector(".slot__drop");
-    dropText.textContent = instanceId ? "" : "Drop / click to place";
+    if (dropText) dropText.textContent = instanceId ? "" : "Drop / click to place";
 
     const existingCard = slot.querySelector(".tarot-card");
     if (existingCard) existingCard.remove();
@@ -566,6 +633,67 @@ function placeIntoSlot(state, instanceId, plane, code) {
   if (!state.metrics.first_place_at) state.metrics.first_place_at = nowIso();
 
   addEvent(state, "place", { instance_id: instanceId, plane, slot_code: code });
+  saveState(state);
+  renderAll(state);
+}
+
+function drawOneInstance(state, { kind }) {
+  if (state.remaining.length === 0) return null;
+  ensureRng(state);
+  const idx = rngInt(state, state.remaining.length);
+  const cardId = state.remaining.splice(idx, 1)[0];
+  const instanceId = uid("inst");
+  const drawN = state.seq.next_draw_number;
+  state.seq.next_draw_number += 1;
+  state.instances[instanceId] = {
+    id: instanceId,
+    card_id: cardId,
+    face_up: true,
+    reversed: rngFloat01(state) < 0.18,
+    plane: null,
+    slot_code: null,
+    draw_n: drawN,
+    drawn_at: nowIso(),
+    kind
+  };
+  addEvent(state, "draw", { instance_id: instanceId, card_id: cardId, kind });
+  return instanceId;
+}
+
+function dealInstancesIntoNextSlots(state, instanceIds) {
+  for (const instanceId of instanceIds) {
+    const next = nextEmptyDealSlot(state);
+    if (!next) break;
+    placeIntoSlot(state, instanceId, next.plane, next.code);
+  }
+}
+
+function dealEmptySlots(state, { kind, limit = Infinity } = {}) {
+  const filled = [];
+  let placedCount = 0;
+  for (const step of DEAL_SEQUENCE) {
+    if (placedCount >= limit) break;
+    const key = `${step.plane}:${step.code}`;
+    if (state.placed[key]) continue;
+    const instanceId = drawOneInstance(state, { kind: kind ?? "deal" });
+    if (!instanceId) break;
+    // Place without going through hand.
+    state.placed[key] = instanceId;
+    state.instances[instanceId].plane = step.plane;
+    state.instances[instanceId].slot_code = step.code;
+    state.ui.selected_instance_id = instanceId;
+    state.ui.selected_hand_instance_id = null;
+    addEvent(state, "place", { instance_id: instanceId, plane: step.plane, slot_code: step.code });
+    filled.push(instanceId);
+    placedCount += 1;
+  }
+
+  if (filled.length > 0) {
+    state.metrics ||= { first_draw_at: null, first_place_at: null };
+    if (!state.metrics.first_draw_at) state.metrics.first_draw_at = state.instances[filled[0]].drawn_at;
+    if (!state.metrics.first_place_at) state.metrics.first_place_at = nowIso();
+  }
+
   saveState(state);
   renderAll(state);
 }
@@ -664,12 +792,20 @@ function renderMetrics(state) {
   const placedCount = Object.keys(state.placed).length;
   const blockedCount = state.events.filter((e) => e.type === "place.blocked").length;
   const ms = msBetweenIso(state.metrics?.first_draw_at, state.metrics?.first_place_at);
+  const remaining = state.remaining?.length ?? 0;
+  const seed = state.rng?.seed ?? "—";
+  const autoDeal = Boolean(byId("auto-deal")?.checked);
+  const next = autoDeal ? nextEmptyDealSlot(state) : null;
+  const nextText = next ? `${planeLabel(next.plane)} ${next.code}` : "—";
 
   el.innerHTML = `
     <div class="metrics__row"><span class="metrics__label">Drawn</span><span class="metrics__value">${drawnCount}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Remaining</span><span class="metrics__value">${remaining}</span></div>
     <div class="metrics__row"><span class="metrics__label">Placed</span><span class="metrics__value">${placedCount}</span></div>
     <div class="metrics__row"><span class="metrics__label">Blocked</span><span class="metrics__value">${blockedCount}</span></div>
     <div class="metrics__row"><span class="metrics__label">First placement (from draw)</span><span class="metrics__value">${formatDurationMs(ms)}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Auto-deal next</span><span class="metrics__value">${nextText}</span></div>
+    <div class="metrics__row"><span class="metrics__label">Seed</span><span class="metrics__value">${seed}</span></div>
   `;
 }
 
@@ -761,6 +897,7 @@ function exportState(state) {
     exported_at: nowIso(),
     question: state.question,
     deck_id: state.deck_id,
+    rng: state.rng ?? null,
     spread: {
       type: "volumetric_cross_wireframe",
       planes: PLANES.map((p) => p.id),
@@ -774,6 +911,8 @@ function exportState(state) {
       first_place_at: state.metrics?.first_place_at ?? null,
       time_to_first_place_ms: timeToFirstPlaceMs
     },
+    remaining: state.remaining ?? [],
+    hand: state.hand ?? [],
     instances: state.instances,
     placed: state.placed,
     notes: state.notes,
@@ -807,30 +946,14 @@ function showScreen(screen) {
   session.classList.toggle("hidden", screen !== "session");
 }
 
-function drawCards(state, count, { kind }) {
+function drawCards(state, count, { kind, autoDeal } = {}) {
   const drawn = [];
   state.seq ||= { next_draw_number: 1 };
   for (let i = 0; i < count; i += 1) {
-    if (state.remaining.length === 0) break;
-    const idx = Math.floor(Math.random() * state.remaining.length);
-    const cardId = state.remaining.splice(idx, 1)[0];
-    const instanceId = uid("inst");
-    const drawN = state.seq.next_draw_number;
-    state.seq.next_draw_number += 1;
-    state.instances[instanceId] = {
-      id: instanceId,
-      card_id: cardId,
-      face_up: true,
-      reversed: Math.random() < 0.18,
-      plane: null,
-      slot_code: null,
-      draw_n: drawN,
-      drawn_at: nowIso(),
-      kind
-    };
+    const instanceId = drawOneInstance(state, { kind });
+    if (!instanceId) break;
     state.hand.unshift(instanceId);
     drawn.push(instanceId);
-    addEvent(state, "draw", { instance_id: instanceId, card_id: cardId, kind });
   }
   if (drawn.length === 0) addEvent(state, "draw.none", { kind });
 
@@ -839,14 +962,26 @@ function drawCards(state, count, { kind }) {
     state.metrics.first_draw_at = state.instances[drawn[0]].drawn_at;
   }
 
-  state.ui.selected_hand_instance_id = drawn[0] ?? state.ui.selected_hand_instance_id;
-  state.ui.selected_instance_id = drawn[0] ?? state.ui.selected_instance_id;
-  saveState(state);
-  renderAll(state);
+  if (autoDeal) {
+    addEvent(state, "deal.auto", { count: drawn.length });
+    dealInstancesIntoNextSlots(state, drawn);
+    // If any drawn cards remain in hand (e.g. no slots available), select the most recent one.
+    const remainingInHand = drawn.find((id) => state.hand.includes(id)) ?? null;
+    state.ui.selected_hand_instance_id = remainingInHand;
+    if (remainingInHand) state.ui.selected_instance_id = remainingInHand;
+    saveState(state);
+    renderAll(state);
+  } else {
+    state.ui.selected_hand_instance_id = drawn[0] ?? state.ui.selected_hand_instance_id;
+    state.ui.selected_instance_id = drawn[0] ?? state.ui.selected_instance_id;
+    saveState(state);
+    renderAll(state);
+  }
 }
 
 function resetState(deck) {
   const state = defaultState(deck);
+  ensureRng(state);
   addEvent(state, "session.start", { mode: "3d_web_wireframe", method: "volumetric_cross" });
   saveState(state);
   return state;
@@ -881,6 +1016,10 @@ function wireControls(state, deck) {
         "- Horizon: likely trajectory / advice\\n\\n" +
         "Correspondence = same slot letter (A/B/C/D) across planes.\\n" +
         "Hover a slot to highlight the vertical stack + see it in the Correspondence panel.\\n\\n" +
+        "Auto-deal:\\n" +
+        "- Fills slots by stack: A then B then C then D\\n" +
+        "- Within a stack: Understory → Surface → Horizon\\n" +
+        "- The next target slot is highlighted in amber\\n\\n" +
         "Input:\\n" +
         "- Drag a card onto a slot\\n" +
         "- Or click a card, then click a slot\\n\\n" +
@@ -923,11 +1062,30 @@ function wireControls(state, deck) {
     });
 
   const drawOne = byId("draw-one");
-  if (drawOne) drawOne.onclick = () => drawCards(state, 1, { kind: "draw" });
+  if (drawOne)
+    drawOne.onclick = () => drawCards(state, 1, { kind: "draw", autoDeal: Boolean(byId("auto-deal")?.checked) });
   const drawThree = byId("draw-three");
-  if (drawThree) drawThree.onclick = () => drawCards(state, 3, { kind: "draw" });
+  if (drawThree)
+    drawThree.onclick = () => drawCards(state, 3, { kind: "draw", autoDeal: Boolean(byId("auto-deal")?.checked) });
   const drawClarifier = byId("draw-clarifier");
-  if (drawClarifier) drawClarifier.onclick = () => drawCards(state, 1, { kind: "clarifier" });
+  if (drawClarifier)
+    drawClarifier.onclick = () =>
+      drawCards(state, 1, { kind: "clarifier", autoDeal: Boolean(byId("auto-deal")?.checked) });
+
+  const autoDeal = byId("auto-deal");
+  if (autoDeal)
+    autoDeal.addEventListener("change", () => {
+      addEvent(state, "ui.auto_deal", { enabled: Boolean(autoDeal.checked) });
+      saveState(state);
+      renderAll(state);
+    });
+
+  const dealFull = byId("deal-full");
+  if (dealFull)
+    dealFull.onclick = () => {
+      // Fill as many empty slots as possible, up to 12.
+      dealEmptySlots(state, { kind: "deal_full", limit: 12 });
+    };
 
   const saveNote = byId("save-note");
   if (saveNote)
@@ -974,6 +1132,7 @@ async function main() {
   state.hand ||= [];
   state.remaining ||= deck.cards.map((c) => c.id);
   state.seq ||= { next_draw_number: 1 };
+  ensureRng(state);
   const maxDraw = Math.max(
     0,
     ...Object.values(state.instances)
