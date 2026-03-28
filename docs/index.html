@@ -65,9 +65,7 @@
               <input id="question" placeholder="What do I need to understand about…?" />
             </label>
             <div class="row">
-              <button class="btn btn--primary" id="draw-one" type="button">Draw 1</button>
-              <button class="btn" id="draw-three" type="button">Draw 3</button>
-              <button class="btn" id="draw-clarifier" type="button">Clarifier</button>
+              <button class="btn btn--primary" id="deal-next" type="button">Next card</button>
             </div>
             <div class="row row--tight">
               <div class="toggle" aria-label="Auto-deal status">
@@ -75,8 +73,8 @@
               </div>
               <label class="toggle toggle--range">
                 <span>Deal pace</span>
-                <input id="deal-delay" type="range" min="0" max="1600" step="100" value="600" />
-                <span class="toggle__value" id="deal-delay-value">600ms</span>
+                <input id="deal-delay" type="range" min="0" max="2000" step="100" value="900" />
+                <span class="toggle__value" id="deal-delay-value">900ms</span>
               </label>
               <button class="btn" id="deal-full" type="button">Deal full (12)</button>
             </div>

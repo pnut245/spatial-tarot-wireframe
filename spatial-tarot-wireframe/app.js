@@ -228,9 +228,17 @@ function glyphSvg(type) {
 
 function cardBadgesHtml(inst, { slotCode } = {}) {
   const badges = [];
-  badges.push(
-    inst.face_up ? `<span class="badge badge--up">UP</span>` : `<span class="badge badge--down">DOWN</span>`
-  );
+  const faceUp = inst.face_up;
+  badges.push(faceUp ? `<span class="badge badge--up">UP</span>` : `<span class="badge badge--down">DOWN</span>`);
+  if (inst.reversed) badges.push(`<span class="badge badge--rev">REV</span>`);
+  if (slotCode) badges.push(`<span class="badge">SLOT ${slotCode}</span>`);
+  return badges.join("");
+}
+
+function cardBadgesHtmlWithOverrides(inst, { slotCode, faceUpOverride } = {}) {
+  const badges = [];
+  const faceUp = typeof faceUpOverride === "boolean" ? faceUpOverride : inst.face_up;
+  badges.push(faceUp ? `<span class="badge badge--up">UP</span>` : `<span class="badge badge--down">DOWN</span>`);
   if (inst.reversed) badges.push(`<span class="badge badge--rev">REV</span>`);
   if (slotCode) badges.push(`<span class="badge">SLOT ${slotCode}</span>`);
   return badges.join("");
@@ -238,23 +246,35 @@ function cardBadgesHtml(inst, { slotCode } = {}) {
 
 function cardMiniHtml({ inst, card, planeId, slotCode, context }) {
   const glyph = glyphTypeForCard(card);
-  const title = inst.face_up ? card.name : "Face-down";
   const meta =
     context === "placed"
-      ? `${planeLabel(planeId)} • Slot ${slotCode} • ${inst.reversed ? "reversed" : "upright"}`
-      : inst.face_up
-        ? card.keywords.map((k) => `#${k}`).slice(0, 3).join(" ")
-        : "Click to inspect → Flip to reveal";
+      ? `${planeLabel(planeId)} • Slot ${slotCode}`
+      : card.keywords.map((k) => `#${k}`).slice(0, 3).join(" ");
 
   return `
-    <div class="tarot-card__top">
-      <div class="tarot-card__corner">#${inst.draw_n ?? "—"}</div>
-      <div class="tarot-card__badges">${cardBadgesHtml(inst, { slotCode: context === "placed" ? slotCode : null })}</div>
-    </div>
-    <div class="tarot-card__glyph">${glyphSvg(glyph)}</div>
-    <div class="tarot-card__body">
-      <div class="tarot-card__name">${title}</div>
-      <div class="tarot-card__meta">${meta}</div>
+    <div class="tarot-card__inner" aria-hidden="true">
+      <div class="tarot-card__face tarot-card__face--back">
+        <div class="tarot-card__top">
+          <div class="tarot-card__corner">#${inst.draw_n ?? "—"}</div>
+          <div class="tarot-card__badges">${cardBadgesHtmlWithOverrides(inst, { slotCode: context === "placed" ? slotCode : null, faceUpOverride: false })}</div>
+        </div>
+        <div class="tarot-card__glyph tarot-card__glyph--back">${glyphSvg("cross")}</div>
+        <div class="tarot-card__body">
+          <div class="tarot-card__name">Face-down</div>
+          <div class="tarot-card__meta">${context === "placed" ? meta : "Dealing… then reveal"}</div>
+        </div>
+      </div>
+      <div class="tarot-card__face tarot-card__face--front">
+        <div class="tarot-card__top">
+          <div class="tarot-card__corner">#${inst.draw_n ?? "—"}</div>
+          <div class="tarot-card__badges">${cardBadgesHtmlWithOverrides(inst, { slotCode: context === "placed" ? slotCode : null, faceUpOverride: true })}</div>
+        </div>
+        <div class="tarot-card__glyph">${glyphSvg(glyph)}</div>
+        <div class="tarot-card__body">
+          <div class="tarot-card__name">${card.name}</div>
+          <div class="tarot-card__meta">${meta}</div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -561,28 +581,38 @@ function renderSlots(state) {
     if (dropText) dropText.textContent = instanceId ? "" : "Drop / click to place";
 
     const existingCard = slot.querySelector(".tarot-card");
-    if (existingCard) existingCard.remove();
-
-    if (instanceId) {
+    if (!instanceId) {
+      if (existingCard) existingCard.remove();
+    } else {
       const inst = state.instances[instanceId];
       const card = state._cardById[inst.card_id];
-      const cardDiv = document.createElement("div");
-      cardDiv.className = "tarot-card";
-      cardDiv.dataset.instanceId = instanceId;
+      const shouldReplace = !existingCard || existingCard.dataset.instanceId !== instanceId;
+
+      const cardDiv = shouldReplace ? document.createElement("div") : existingCard;
+      if (shouldReplace) {
+        cardDiv.className = "tarot-card";
+        cardDiv.dataset.instanceId = instanceId;
+        cardDiv.addEventListener("click", () => {
+          state.ui.selected_instance_id = instanceId;
+          state.ui.selected_hand_instance_id = null;
+          addEvent(state, "ui.select", { instance_id: instanceId });
+          saveState(state);
+          renderAll(state);
+        });
+      }
+
       cardDiv.dataset.faceUp = inst.face_up ? "true" : "false";
       cardDiv.dataset.reversed = inst.reversed ? "true" : "false";
       cardDiv.style.setProperty("--plane-accent", planeAccent(plane));
-      if (state.ui.selected_instance_id === instanceId) cardDiv.classList.add("tarot-card--selected");
-      if (state.ui.last_dealt_instance_id === instanceId) cardDiv.classList.add("tarot-card--dealt");
-      cardDiv.innerHTML = cardMiniHtml({ inst, card, planeId: plane, slotCode: code, context: "placed" });
-      cardDiv.addEventListener("click", () => {
-        state.ui.selected_instance_id = instanceId;
-        state.ui.selected_hand_instance_id = null;
-        addEvent(state, "ui.select", { instance_id: instanceId });
-        saveState(state);
-        renderAll(state);
-      });
-      slot.appendChild(cardDiv);
+      cardDiv.classList.toggle("tarot-card--selected", state.ui.selected_instance_id === instanceId);
+      cardDiv.classList.toggle("tarot-card--dealt", state.ui.last_dealt_instance_id === instanceId);
+
+      // Only rewrite inner HTML when creating/replacing the card element. This allows CSS flip transitions.
+      if (shouldReplace || !cardDiv.querySelector(".tarot-card__inner")) {
+        cardDiv.innerHTML = cardMiniHtml({ inst, card, planeId: plane, slotCode: code, context: "placed" });
+      }
+
+      if (shouldReplace) slot.appendChild(cardDiv);
     }
 
     slot.onmouseenter = () => setHoveredSlot(state, { plane, code, on: true });
@@ -1010,7 +1040,7 @@ function renderAll(state) {
 
   updateDealDelayLabel();
   const isDealing = Boolean(state.ui?.dealing);
-  const dealBtns = ["draw-one", "draw-three", "draw-clarifier", "deal-full"];
+  const dealBtns = ["deal-next", "deal-full"];
   for (const id of dealBtns) {
     const btn = byId(id);
     if (btn) btn.disabled = isDealing;
@@ -1119,12 +1149,8 @@ function wireControls(state, deck) {
       saveState(state);
     });
 
-  const drawOne = byId("draw-one");
-  if (drawOne) drawOne.onclick = () => dealToBoardWithDelay(state, 1, { kind: "draw" });
-  const drawThree = byId("draw-three");
-  if (drawThree) drawThree.onclick = () => dealToBoardWithDelay(state, 3, { kind: "draw" });
-  const drawClarifier = byId("draw-clarifier");
-  if (drawClarifier) drawClarifier.onclick = () => dealToBoardWithDelay(state, 1, { kind: "clarifier" });
+  const dealNext = byId("deal-next");
+  if (dealNext) dealNext.onclick = () => dealToBoardWithDelay(state, 1, { kind: "draw" });
 
   const dealDelay = byId("deal-delay");
   if (dealDelay)
