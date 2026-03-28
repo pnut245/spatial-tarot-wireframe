@@ -152,6 +152,101 @@ const PLANES = [
   { id: "horizon", label: "Horizon" }
 ];
 
+const PLANE_ACCENTS = {
+  understory: "rgba(167, 139, 250, 0.92)",
+  surface: "rgba(125, 211, 252, 0.92)",
+  horizon: "rgba(52, 211, 153, 0.92)",
+  none: "rgba(231, 238, 252, 0.5)"
+};
+
+function planeLabel(planeId) {
+  return PLANES.find((p) => p.id === planeId)?.label ?? "Hand";
+}
+
+function planeAccent(planeId) {
+  return PLANE_ACCENTS[planeId] ?? PLANE_ACCENTS.none;
+}
+
+function majorNumber(cardId) {
+  const m = (cardId ?? "").match(/major-(\d+)/);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function glyphTypeForCard(card) {
+  if (!card) return "circle";
+  if (card.name === "The Sun") return "sun";
+  if (card.name === "The Moon") return "moon";
+  if (card.name === "The Star") return "star";
+
+  const n = majorNumber(card.id);
+  const cycle = ["circle", "triangle", "square", "diamond", "wave", "eye", "spiral", "cross"];
+  if (n === null) return cycle[0];
+  return cycle[n % cycle.length];
+}
+
+function glyphSvg(type) {
+  switch (type) {
+    case "triangle":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4L21 20H3L12 4Z" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+    case "square":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+    case "diamond":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L21 12L12 21L3 12L12 3Z" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+    case "wave":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13c3.5 0 3.5-6 7-6s3.5 6 7 6 3.5-6 7-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case "eye":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+    case "spiral":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c0-2.8 2.2-5 5-5 2.2 0 4 1.8 4 4 0 4.4-3.6 8-8 8-5.5 0-10-4.5-10-10C3 5.7 5.7 3 9 3c2.8 0 5 2.2 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case "cross":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case "moon":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 2c-2.6 1.2-4.5 3.9-4.5 7.1 0 4.4 3.6 8 8 8 1.1 0 2.1-.2 3-.6-1.6 3.6-5.2 6.1-9.4 6.1C7.5 22.6 3 18.1 3 12.6 3 7.5 6.8 3.3 11.8 2.6 13.4 2.3 14.8 2.2 16 2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
+    case "sun":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M19.8 4.2l-2.1 2.1M6.3 17.7l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case "star":
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6.1 6.6.6-5 4.3 1.5 6.4L12 17.9 6.3 20.4 7.8 14 2.8 9.7l6.6-.6L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
+    case "circle":
+    default:
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+  }
+}
+
+function cardBadgesHtml(inst, { slotCode } = {}) {
+  const badges = [];
+  badges.push(
+    inst.face_up ? `<span class="badge badge--up">UP</span>` : `<span class="badge badge--down">DOWN</span>`
+  );
+  if (inst.reversed) badges.push(`<span class="badge badge--rev">REV</span>`);
+  if (slotCode) badges.push(`<span class="badge">SLOT ${slotCode}</span>`);
+  return badges.join("");
+}
+
+function cardMiniHtml({ inst, card, planeId, slotCode, context }) {
+  const glyph = glyphTypeForCard(card);
+  const title = inst.face_up ? card.name : "Face-down";
+  const meta =
+    context === "placed"
+      ? `${planeLabel(planeId)} • Slot ${slotCode} • ${inst.reversed ? "reversed" : "upright"}`
+      : inst.face_up
+        ? card.keywords.map((k) => `#${k}`).slice(0, 3).join(" ")
+        : "Click to inspect → Flip to reveal";
+
+  return `
+    <div class="tarot-card__top">
+      <div class="tarot-card__corner">#${inst.draw_n ?? "—"}</div>
+      <div class="tarot-card__badges">${cardBadgesHtml(inst, { slotCode: context === "placed" ? slotCode : null })}</div>
+    </div>
+    <div class="tarot-card__glyph">${glyphSvg(glyph)}</div>
+    <div class="tarot-card__body">
+      <div class="tarot-card__name">${title}</div>
+      <div class="tarot-card__meta">${meta}</div>
+    </div>
+  `;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -191,6 +286,9 @@ function defaultState(deck) {
     rng_seed: null,
     deck_id: deck.deck_id,
     remaining: deck.cards.map((c) => c.id),
+    seq: {
+      next_draw_number: 1
+    },
     hand: [],
     placed: {}, // `${plane}:${code}` => instanceId
     instances: {}, // instanceId => {id, card_id, face_up, reversed, plane, slot_code, note, drawn_at}
@@ -309,11 +407,11 @@ function renderHand(state) {
     div.className = "tarot-card";
     div.draggable = true;
     div.dataset.instanceId = instanceId;
+    div.dataset.faceUp = inst.face_up ? "true" : "false";
+    div.dataset.reversed = inst.reversed ? "true" : "false";
+    div.style.setProperty("--plane-accent", planeAccent(inst.plane));
     if (state.ui.selected_hand_instance_id === instanceId) div.classList.add("tarot-card--selected");
-    div.innerHTML = `
-      <div class="tarot-card__name">${card.name}</div>
-      <div class="tarot-card__meta">${card.keywords.map((k) => `#${k}`).slice(0, 3).join(" ")}</div>
-    `;
+    div.innerHTML = cardMiniHtml({ inst, card, planeId: inst.plane, slotCode: inst.slot_code, context: "hand" });
     div.addEventListener("dragstart", (e) => {
       e.dataTransfer?.setData("text/plain", instanceId);
       e.dataTransfer?.setData("application/x-spatial-tarot-instance", instanceId);
@@ -353,13 +451,11 @@ function renderSlots(state) {
       const cardDiv = document.createElement("div");
       cardDiv.className = "tarot-card";
       cardDiv.dataset.instanceId = instanceId;
+      cardDiv.dataset.faceUp = inst.face_up ? "true" : "false";
+      cardDiv.dataset.reversed = inst.reversed ? "true" : "false";
+      cardDiv.style.setProperty("--plane-accent", planeAccent(plane));
       if (state.ui.selected_instance_id === instanceId) cardDiv.classList.add("tarot-card--selected");
-      cardDiv.innerHTML = `
-        <div class="tarot-card__name">${card.name}</div>
-        <div class="tarot-card__meta">${inst.face_up ? "face-up" : "face-down"} • ${
-          inst.reversed ? "reversed" : "upright"
-        }</div>
-      `;
+      cardDiv.innerHTML = cardMiniHtml({ inst, card, planeId: plane, slotCode: code, context: "placed" });
       cardDiv.addEventListener("click", () => {
         state.ui.selected_instance_id = instanceId;
         state.ui.selected_hand_instance_id = null;
@@ -445,10 +541,16 @@ function renderInspect(state) {
   const inst = state.instances[instanceId];
   const card = state._cardById[inst.card_id];
   const noteText = (state.notes[instanceId]?.text ?? "").trim();
+  const glyph = glyphTypeForCard(card);
+  const title = inst.face_up ? card.name : "Face-down";
+  const meaning = inst.face_up
+    ? card.meaning
+    : "Flip to reveal the card name + meaning. (Wireframe note: the glyph stays visible so you can track cards.)";
 
   inspectEl.innerHTML = `
-    <div class="inspect__name">${card.name}</div>
-    <div class="inspect__meaning">${card.meaning}</div>
+    <div class="tarot-card__glyph" style="justify-self: start; place-items: start; margin-bottom: 6px; color: var(--plane-accent, rgba(231, 238, 252, 0.82));">${glyphSvg(glyph)}</div>
+    <div class="inspect__name">${title}</div>
+    <div class="inspect__meaning">${meaning}</div>
     <div class="inspect__tags">
       <span class="tag tag--plane">${inst.plane ?? "in hand"}</span>
       <span class="tag tag--slot">${inst.slot_code ?? "—"}</span>
@@ -540,8 +642,9 @@ function renderCorrespondence(state) {
     if (!instanceId) return { plane: p, text: "— empty —", empty: true };
     const inst = state.instances[instanceId];
     const card = state._cardById[inst.card_id];
+    const base = inst.face_up ? card.name : `Face-down (#${inst.draw_n ?? "—"})`;
     const suffix = inst.reversed ? " (reversed)" : "";
-    return { plane: p, text: `${card.name}${suffix}`, empty: false };
+    return { plane: p, text: `${base}${suffix}`, empty: false };
   });
 
   el.innerHTML = `
@@ -651,18 +754,22 @@ function showScreen(screen) {
 
 function drawCards(state, count, { kind }) {
   const drawn = [];
+  state.seq ||= { next_draw_number: 1 };
   for (let i = 0; i < count; i += 1) {
     if (state.remaining.length === 0) break;
     const idx = Math.floor(Math.random() * state.remaining.length);
     const cardId = state.remaining.splice(idx, 1)[0];
     const instanceId = uid("inst");
+    const drawN = state.seq.next_draw_number;
+    state.seq.next_draw_number += 1;
     state.instances[instanceId] = {
       id: instanceId,
       card_id: cardId,
-      face_up: false,
+      face_up: true,
       reversed: Math.random() < 0.18,
       plane: null,
       slot_code: null,
+      draw_n: drawN,
       drawn_at: nowIso(),
       kind
     };
@@ -790,6 +897,14 @@ async function main() {
   state.placed ||= {};
   state.hand ||= [];
   state.remaining ||= deck.cards.map((c) => c.id);
+  state.seq ||= { next_draw_number: 1 };
+  const maxDraw = Math.max(
+    0,
+    ...Object.values(state.instances)
+      .map((inst) => inst.draw_n)
+      .filter((n) => Number.isFinite(n))
+  );
+  state.seq.next_draw_number = Math.max(state.seq.next_draw_number ?? 1, maxDraw + 1);
   state.metrics ||= { first_draw_at: null, first_place_at: null };
   state.ui ||= {
     selected_instance_id: null,
