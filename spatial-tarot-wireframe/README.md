@@ -1,9 +1,9 @@
-# Spatial Tarot (3D Web Wireframe)
+# Spatial Tarot (Web Wireframe)
 
 This is a **no-dependencies** wireframe website to quickly test the *interaction grammar* described in **Spatial Tarot in 3D**:
 
 - Session flow: question → draw → place → inspect → annotate → export
-- Volumetric spread idea: **three discrete planes** with **vertical correspondences**
+- Volumetric spread idea: **three discrete planes** shown as a **graphic grid** with **vertical correspondences**
 - Input redundancy for reach: **drag/drop** and **click-to-place** (touch-friendly)
 - Event-sourced session log (for replay/export later)
 

@@ -349,7 +349,12 @@ function getActiveSlotCode(state) {
 function updateCorrespondenceHighlight(state) {
   const activeCode = getActiveSlotCode(state);
   const allSlots = document.querySelectorAll(".slot");
-  for (const s of allSlots) s.classList.toggle("slot--corresponding", Boolean(activeCode) && s.dataset.code === activeCode);
+  for (const s of allSlots)
+    s.classList.toggle("slot--corresponding", Boolean(activeCode) && s.dataset.code === activeCode);
+
+  const headers = document.querySelectorAll(".board__header");
+  for (const h of headers)
+    h.classList.toggle("board__header--active", Boolean(activeCode) && h.dataset.code === activeCode);
 }
 
 function setHoveredSlot(state, { plane, code, on }) {
@@ -366,25 +371,55 @@ function setHoveredSlot(state, { plane, code, on }) {
 }
 
 function ensureSlotContainers() {
+  const board = document.getElementById("board");
+  if (!board) return;
+
+  const planeSubtitles = {
+    understory: "Hidden drivers",
+    surface: "Present snapshot",
+    horizon: "Trajectory"
+  };
+
+  board.innerHTML = "";
+
+  const corner = document.createElement("div");
+  corner.className = "board__corner";
+  corner.innerHTML = `<div><strong>Plane</strong> ↓</div><div><strong>Slot</strong> →</div>`;
+  board.appendChild(corner);
+
+  for (const slot of SLOT_DEFS) {
+    const header = document.createElement("div");
+    header.className = "board__header";
+    header.dataset.code = slot.code;
+    header.innerHTML = `
+      <div class="board__headerTop">
+        <div class="board__code">${slot.code}</div>
+      </div>
+      <div class="board__headerLabel">${slot.label}</div>
+    `;
+    board.appendChild(header);
+  }
+
   for (const plane of PLANES) {
-    const el = document.getElementById(`slots-${plane.id}`);
-    el.innerHTML = "";
+    const rowLabel = document.createElement("div");
+    rowLabel.className = "board__rowLabel";
+    rowLabel.innerHTML = `
+      <div class="board__rowTitle board__rowTitle--${plane.id}">${plane.label}</div>
+      <div class="board__rowSub">${planeSubtitles[plane.id] ?? ""}</div>
+    `;
+    board.appendChild(rowLabel);
+
     for (const slot of SLOT_DEFS) {
       const slotId = `${plane.id}:${slot.code}`;
       const div = document.createElement("div");
-      div.className = "slot";
+      div.className = "slot slot--empty";
       div.dataset.plane = plane.id;
       div.dataset.code = slot.code;
       div.dataset.slotId = slotId;
       div.tabIndex = 0;
-      div.innerHTML = `
-        <div class="slot__label">
-          <span>${slot.label}</span>
-          <span class="slot__code">${slot.code}</span>
-        </div>
-        <div class="slot__drop">Drop / click to place</div>
-      `;
-      el.appendChild(div);
+      div.style.setProperty("--plane-accent", planeAccent(plane.id));
+      div.innerHTML = `<div class="slot__drop">Drop / click to place</div>`;
+      board.appendChild(div);
     }
   }
 }
@@ -437,6 +472,7 @@ function renderSlots(state) {
     const instanceId = state.placed[key];
 
     slot.classList.toggle("slot--occupied", Boolean(instanceId));
+    slot.classList.toggle("slot--empty", !instanceId);
     slot.classList.remove("slot--active");
 
     const dropText = slot.querySelector(".slot__drop");

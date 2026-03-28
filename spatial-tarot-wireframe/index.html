@@ -10,7 +10,7 @@
     <header class="topbar">
       <div class="brand">
         <div class="brand__title">Spatial Tarot</div>
-        <div class="brand__subtitle">3D web wireframe (Volumetric Cross)</div>
+        <div class="brand__subtitle">Graphic wireframe (Volumetric Cross)</div>
       </div>
       <nav class="topbar__nav">
         <button class="btn btn--ghost" id="nav-home" type="button">Home</button>
@@ -25,7 +25,7 @@
       <section class="panel panel--home" id="screen-home">
         <h1>Wireframe goals</h1>
         <ul class="bullets">
-          <li>Test whether a <strong>volumetric spread</strong> stays interpretable in 3D.</li>
+          <li>Test whether a <strong>volumetric spread</strong> stays interpretable across planes (not “cards floating”).</li>
           <li>Validate the flow: <strong>question → draw → place → inspect → annotate → export</strong>.</li>
           <li>Prototype <strong>input redundancy</strong>: drag/drop + click-to-place (touch-friendly).</li>
         </ul>
@@ -84,10 +84,12 @@
             </div>
           </div>
 
-          <div class="cardlike">
-            <h2>Event log</h2>
-            <div class="log" id="log"></div>
-          </div>
+          <details class="cardlike cardlike--details">
+            <summary>Debug (event log)</summary>
+            <div class="cardlike--details__body">
+              <div class="log" id="log"></div>
+            </div>
+          </details>
         </div>
 
         <div class="session__center">
@@ -106,19 +108,8 @@
               </div>
             </div>
 
-            <div class="volume" id="volume" aria-label="Volumetric spread">
-              <div class="plane plane--horizon" data-plane="horizon">
-                <div class="plane__title">Horizon (trajectory)</div>
-                <div class="slots" id="slots-horizon"></div>
-              </div>
-              <div class="plane plane--surface" data-plane="surface">
-                <div class="plane__title">Surface (present)</div>
-                <div class="slots" id="slots-surface"></div>
-              </div>
-              <div class="plane plane--understory" data-plane="understory">
-                <div class="plane__title">Understory (hidden)</div>
-                <div class="slots" id="slots-understory"></div>
-              </div>
+            <div class="boardWrap" aria-label="Volumetric spread (graphic grid)">
+              <div class="board" id="board"></div>
             </div>
           </div>
         </div>
