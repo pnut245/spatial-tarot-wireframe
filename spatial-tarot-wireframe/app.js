@@ -1393,6 +1393,33 @@ function markdownToHtml(md) {
   return bolded.replace(/\n/g, "<br/>");
 }
 
+function escapeHtml(s) {
+  return (s ?? "")
+    .toString()
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function fnv1a32(str) {
+  let h = 2166136261;
+  const s = (str ?? "").toString();
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function pickFromSeed(seed, options, offset = 0) {
+  const arr = Array.isArray(options) ? options : [];
+  if (!arr.length) return "";
+  const idx = (seed + (offset >>> 0)) % arr.length;
+  return arr[idx];
+}
+
 function getPlacedInstance(state, planeId, slotCode) {
   const key = `${planeId}:${slotCode}`;
   const instanceId = state.placed?.[key] ?? null;
@@ -1402,7 +1429,332 @@ function getPlacedInstance(state, planeId, slotCode) {
   return inst && card ? { inst, card } : null;
 }
 
-function buildInterpretation(state) {
+function interpretationSeed(state) {
+  const q = (state.question ?? "").toString().trim();
+  const placed = Object.entries(state.placed ?? {})
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|");
+  const profile = JSON.stringify(state.profile?.scores ?? {});
+  return fnv1a32(`${state.session_id ?? ""}|${q}|${placed}|${profile}`);
+}
+
+function describeCardInContext({ card, inst, planeId, slotCode }) {
+  if (!card || !inst) return "";
+  const face = inst.face_up ? "revealed" : "unrevealed";
+  const rev = inst.reversed ? "reversed" : "upright";
+  const slot = slotLens(slotCode);
+  const plane = planeLabel(planeId);
+  const meaning = card.meaning ?? "";
+  const k0 = card.keywords?.[0] ?? "";
+  const keyword = k0 ? ` (${k0})` : "";
+  return `${plane} ${slotCode} (${slot}, ${face}, ${rev}): ${card.name}${keyword}. ${meaning}`;
+}
+
+function profileNarrativeLens(state) {
+  const elements = state.profile?.scores?.astrology_resonance?.elements ?? [];
+  const triad = state.profile?.scores?.enneagram?.top_triad ?? null;
+  const topTypes = state.profile?.scores?.enneagram?.top_types ?? [];
+
+  const primary = elements[0] ?? null;
+  const elementText =
+    primary === "fire"
+      ? "fire-forward (action, courage, momentum)"
+      : primary === "earth"
+        ? "earth-forward (practical, grounded, tangible steps)"
+        : primary === "air"
+          ? "air-forward (pattern, meaning, reframing)"
+          : primary === "water"
+            ? "water-forward (feeling, intuition, empathy)"
+            : null;
+
+  const triadText =
+    triad === "head"
+      ? "head triad (thinking, scanning, planning)"
+      : triad === "heart"
+        ? "heart triad (identity, image, emotional truth)"
+        : triad === "gut"
+          ? "gut triad (instinct, boundaries, action)"
+          : null;
+
+  const typeLabel = (n) => {
+    const map = {
+      1: "Reformer",
+      2: "Helper",
+      3: "Achiever",
+      4: "Individualist",
+      5: "Investigator",
+      6: "Loyalist",
+      7: "Enthusiast",
+      8: "Challenger",
+      9: "Peacemaker"
+    };
+    return map[n] ? `E${n} ${map[n]}` : `E${n}`;
+  };
+
+  const typesText = topTypes.length ? topTypes.slice(0, 2).map(typeLabel).join(" / ") : null;
+
+  const parts = [elementText, triadText, typesText].filter(Boolean);
+  if (!parts.length) return null;
+  return `Based on your visual profile choices, your lens leans ${parts.join(" · ")}.`;
+}
+
+function buildInterpretationStructured(state, { seed }) {
+  const tone = profileTone(state);
+  const q = (state.question ?? "").toString().trim();
+
+  const surfaceStory = SLOT_DEFS.map((s) => {
+    const got = getPlacedInstance(state, "surface", s.code);
+    if (!got) return null;
+    const rev = got.inst.reversed ? " (reversed)" : "";
+    const face = got.inst.face_up ? "" : " (face-down)";
+    return `Surface ${s.code} (${slotLens(s.code)}): ${got.card.name}${rev}${face} — ${got.card.meaning}`;
+  }).filter(Boolean);
+
+  const stacks = SLOT_DEFS.map((s) => {
+    const u = getPlacedInstance(state, "understory", s.code);
+    const sf = getPlacedInstance(state, "surface", s.code);
+    const h = getPlacedInstance(state, "horizon", s.code);
+    const parts = [];
+    if (u) parts.push(u.inst.face_up ? u.card.name : "Face-down");
+    if (sf) parts.push(sf.inst.face_up ? sf.card.name : "Face-down");
+    if (h) parts.push(h.inst.face_up ? h.card.name : "Face-down");
+    if (!parts.length) return null;
+    return `Slot ${s.code} (${slotLens(s.code)}): ${parts.join(" → ")}`;
+  }).filter(Boolean);
+
+  const horizonD = getPlacedInstance(state, "horizon", "D");
+  const surfaceC = getPlacedInstance(state, "surface", "C");
+  const surfaceB = getPlacedInstance(state, "surface", "B");
+  const understoryA = getPlacedInstance(state, "understory", "A");
+
+  const nextSteps = [];
+  if (surfaceC) nextSteps.push(`${tone.verb} your support: ${surfaceC.card.keywords?.[0] ?? "support"} (Surface C).`);
+  if (surfaceB) nextSteps.push(`${tone.verb} the friction: ${surfaceB.card.keywords?.[0] ?? "challenge"} (Surface B).`);
+  if (understoryA) nextSteps.push(`${tone.verb} the hidden driver: ${understoryA.card.keywords?.[0] ?? "pattern"} (Understory A).`);
+  if (horizonD) nextSteps.push(`${tone.verb} toward the outcome: ${horizonD.card.keywords?.[0] ?? "direction"} (Horizon D).`);
+
+  const copyBlocks = [];
+  copyBlocks.push(`Question: ${q || "—"}`);
+  if (tone.opener) copyBlocks.push(`Tone: ${tone.opener}`);
+  copyBlocks.push("");
+  copyBlocks.push("Surface story (A→D)");
+  copyBlocks.push(surfaceStory.length ? surfaceStory.map((s) => `- ${s}`).join("\n") : "- No Surface cards yet.");
+  copyBlocks.push("");
+  copyBlocks.push("Vertical stacks (correspondences)");
+  copyBlocks.push(stacks.length ? stacks.map((s) => `- ${s}`).join("\n") : "- Not enough cards placed yet.");
+  copyBlocks.push("");
+  copyBlocks.push("Next steps");
+  copyBlocks.push(nextSteps.length ? nextSteps.slice(0, 3).map((s) => `- ${s}`).join("\n") : "- Deal more cards to generate next steps.");
+  const copyText = copyBlocks.join("\n");
+
+  const html = `
+    <h3>Question</h3>
+    <p>${escapeHtml(q || "—")}</p>
+    ${tone.opener ? `<h3>Tone</h3><p>${escapeHtml(tone.opener)}</p>` : ""}
+    <h3>Surface story (A→D)</h3>
+    ${
+      surfaceStory.length
+        ? `<ul>${surfaceStory.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+        : `<p class="hint">No Surface cards yet.</p>`
+    }
+    <h3>Vertical stacks (correspondences)</h3>
+    ${stacks.length ? `<ul>${stacks.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>` : `<p class="hint">Not enough cards placed yet.</p>`}
+    <h3>Next steps</h3>
+    ${
+      nextSteps.length
+        ? `<ul>${nextSteps.slice(0, 3).map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+        : `<p class="hint">Deal more cards to generate next steps.</p>`
+    }
+  `;
+
+  return { html, copyText };
+}
+
+function buildInterpretationNarrative(state, { seed }) {
+  const tone = profileTone(state);
+  const q = (state.question ?? "").toString().trim();
+
+  const surfaceA = getPlacedInstance(state, "surface", "A");
+  const surfaceB = getPlacedInstance(state, "surface", "B");
+  const surfaceC = getPlacedInstance(state, "surface", "C");
+  const surfaceD = getPlacedInstance(state, "surface", "D");
+
+  const understoryA = getPlacedInstance(state, "understory", "A");
+  const horizonD = getPlacedInstance(state, "horizon", "D");
+
+  const lens = profileNarrativeLens(state);
+
+  const openers = [
+    "Let’s treat this spread like a short story with three layers.",
+    "We’ll read this like a scene: what’s under it, what’s on it, and what it’s becoming.",
+    "Think of this as a layered snapshot: hidden drivers, present pressures, and the trajectory."
+  ];
+  const bridge = [
+    "Here’s the throughline as it lands right now.",
+    "Here’s the narrative thread that connects the placements.",
+    "Here’s one coherent storyline you can test against your reality."
+  ];
+  const closer = [
+    "If one line feels especially true, follow that line in your next action.",
+    "If anything feels off, treat it as feedback: the spread is showing the story you’re currently telling.",
+    "If this lands, make it practical: choose one small action that proves the story can change."
+  ];
+
+  const bestStacks = SLOT_DEFS.map((s) => {
+    const u = getPlacedInstance(state, "understory", s.code);
+    const sf = getPlacedInstance(state, "surface", s.code);
+    const h = getPlacedInstance(state, "horizon", s.code);
+    const count = [u, sf, h].filter(Boolean).length;
+    return { code: s.code, count, u, sf, h };
+  })
+    .filter((x) => x.count > 0)
+    .sort((a, b) => b.count - a.count || (a.code < b.code ? -1 : 1))
+    .slice(0, 2);
+
+  const stackParagraphs = bestStacks.map((st, i) => {
+    const parts = [];
+    if (st.u) parts.push(`Understory shows ${st.u.inst.face_up ? st.u.card.name : "something not yet revealed"} (${planeLens("understory")}).`);
+    if (st.sf) parts.push(`Surface names ${st.sf.inst.face_up ? st.sf.card.name : "an unnamed present factor"} (${planeLens("surface")}).`);
+    if (st.h) parts.push(`Horizon points to ${st.h.inst.face_up ? st.h.card.name : "an unrevealed outcome"} (${planeLens("horizon")}).`);
+    const slot = slotLens(st.code);
+    const lead = i === 0 ? "The strongest correspondence column is" : "A second correspondence column is";
+    return `${lead} Slot ${st.code} (${slot}). ${parts.join(" ")}`;
+  });
+
+  const detailLines = [];
+  if (understoryA) detailLines.push(describeCardInContext({ ...understoryA, planeId: "understory", slotCode: "A" }));
+  if (surfaceA) detailLines.push(describeCardInContext({ ...surfaceA, planeId: "surface", slotCode: "A" }));
+  if (surfaceB) detailLines.push(describeCardInContext({ ...surfaceB, planeId: "surface", slotCode: "B" }));
+  if (surfaceC) detailLines.push(describeCardInContext({ ...surfaceC, planeId: "surface", slotCode: "C" }));
+  if (surfaceD) detailLines.push(describeCardInContext({ ...surfaceD, planeId: "surface", slotCode: "D" }));
+  if (horizonD) detailLines.push(describeCardInContext({ ...horizonD, planeId: "horizon", slotCode: "D" }));
+
+  const narrative = [];
+  narrative.push(`Question: ${q || "—"}`);
+  narrative.push("");
+  narrative.push(`${tone.opener ? `${tone.opener} ` : ""}${pickFromSeed(seed, openers, 1)}`);
+  if (lens) narrative.push(lens);
+  narrative.push("");
+  narrative.push(pickFromSeed(seed, bridge, 2));
+
+  if (surfaceA) {
+    const rev = surfaceA.inst.reversed ? " (reversed)" : "";
+    const face = surfaceA.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `On the Surface, the theme is ${surfaceA.card.name}${rev}${face}: ${surfaceA.card.meaning}`
+    );
+  }
+  if (surfaceB) {
+    const rev = surfaceB.inst.reversed ? " (reversed)" : "";
+    const face = surfaceB.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `Crossing that, ${surfaceB.card.name}${rev}${face} shows the friction you have to integrate rather than “solve”: ${surfaceB.card.meaning}`
+    );
+  }
+  if (surfaceC) {
+    const rev = surfaceC.inst.reversed ? " (reversed)" : "";
+    const face = surfaceC.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `Your resource is ${surfaceC.card.name}${rev}${face}. If you need leverage, start there: ${surfaceC.card.meaning}`
+    );
+  }
+  if (surfaceD) {
+    const rev = surfaceD.inst.reversed ? " (reversed)" : "";
+    const face = surfaceD.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `The Surface outcome reads as ${surfaceD.card.name}${rev}${face}: ${surfaceD.card.meaning}`
+    );
+  }
+  if (understoryA) {
+    const rev = understoryA.inst.reversed ? " (reversed)" : "";
+    const face = understoryA.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `Underneath the whole situation, ${understoryA.card.name}${rev}${face} suggests the hidden driver: ${understoryA.card.meaning}`
+    );
+  }
+  if (horizonD) {
+    const rev = horizonD.inst.reversed ? " (reversed)" : "";
+    const face = horizonD.inst.face_up ? "" : " (face-down)";
+    narrative.push(
+      `Looking ahead, ${horizonD.card.name}${rev}${face} is the trajectory signal: ${horizonD.card.meaning}`
+    );
+  }
+
+  if (stackParagraphs.length) {
+    narrative.push("");
+    narrative.push(stackParagraphs.join("\n"));
+  }
+
+  narrative.push("");
+  narrative.push(`${pickFromSeed(seed, closer, 3)}`);
+
+  const nextSteps = [];
+  const k = (card) => card?.keywords?.[0] ?? null;
+  if (surfaceC) nextSteps.push(`${tone.verb} your support: ${k(surfaceC.card) ?? "support"} (Surface C).`);
+  if (surfaceB) nextSteps.push(`${tone.verb} the friction: ${k(surfaceB.card) ?? "challenge"} (Surface B).`);
+  if (understoryA) nextSteps.push(`${tone.verb} the hidden driver: ${k(understoryA.card) ?? "pattern"} (Understory A).`);
+  if (horizonD) nextSteps.push(`${tone.verb} toward the outcome: ${k(horizonD.card) ?? "direction"} (Horizon D).`);
+
+  narrative.push("");
+  narrative.push("Next steps:");
+  narrative.push(nextSteps.length ? nextSteps.slice(0, 3).map((s) => `- ${s}`).join("\n") : "- Deal more cards to generate next steps.");
+
+  narrative.push("");
+  narrative.push("Placed card details:");
+  narrative.push(detailLines.length ? detailLines.join("\n") : "—");
+
+  const copyText = narrative.join("\n");
+
+  const html = `
+    <p class="interpretation__lede"><strong>Question:</strong> ${escapeHtml(q || "—")}</p>
+    ${
+      tone.opener
+        ? `<p><strong>Tone:</strong> ${escapeHtml(tone.opener)}</p>`
+        : ""
+    }
+    ${lens ? `<p class="hint">${escapeHtml(lens)}</p>` : ""}
+    <p>${escapeHtml(pickFromSeed(seed, openers, 1))}</p>
+    <p>${escapeHtml(pickFromSeed(seed, bridge, 2))}</p>
+    ${
+      [
+        surfaceA
+          ? `On the Surface, the theme is ${surfaceA.card.name}${surfaceA.inst.reversed ? " (reversed)" : ""}${surfaceA.inst.face_up ? "" : " (face-down)"}: ${surfaceA.card.meaning}`
+          : null,
+        surfaceB
+          ? `Crossing that, ${surfaceB.card.name}${surfaceB.inst.reversed ? " (reversed)" : ""}${surfaceB.inst.face_up ? "" : " (face-down)"} shows the friction you have to integrate rather than “solve”: ${surfaceB.card.meaning}`
+          : null,
+        surfaceC
+          ? `Your resource is ${surfaceC.card.name}${surfaceC.inst.reversed ? " (reversed)" : ""}${surfaceC.inst.face_up ? "" : " (face-down)"}. If you need leverage, start there: ${surfaceC.card.meaning}`
+          : null,
+        surfaceD
+          ? `The Surface outcome reads as ${surfaceD.card.name}${surfaceD.inst.reversed ? " (reversed)" : ""}${surfaceD.inst.face_up ? "" : " (face-down)"}: ${surfaceD.card.meaning}`
+          : null,
+        understoryA
+          ? `Underneath the whole situation, ${understoryA.card.name}${understoryA.inst.reversed ? " (reversed)" : ""}${understoryA.inst.face_up ? "" : " (face-down)"} suggests the hidden driver: ${understoryA.card.meaning}`
+          : null,
+        horizonD
+          ? `Looking ahead, ${horizonD.card.name}${horizonD.inst.reversed ? " (reversed)" : ""}${horizonD.inst.face_up ? "" : " (face-down)"} is the trajectory signal: ${horizonD.card.meaning}`
+          : null
+      ]
+        .filter(Boolean)
+        .map((p) => `<p>${escapeHtml(p)}</p>`)
+        .join("")
+    }
+    ${stackParagraphs.length ? `<p>${escapeHtml(stackParagraphs.join(" "))}</p>` : ""}
+    <p>${escapeHtml(pickFromSeed(seed, closer, 3))}</p>
+    <h3>Next steps</h3>
+    ${
+      nextSteps.length
+        ? `<ul>${nextSteps.slice(0, 3).map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+        : `<p class="hint">Deal more cards to generate next steps.</p>`
+    }
+  `;
+
+  return { html, copyText };
+}
+
+function buildInterpretation(state, { style = "narrative" } = {}) {
   if (!hasSubmittedQuestion(state)) {
     const msg = "Submit a question to deal cards and generate an interpretation.";
     return { html: null, copyText: msg, text: msg };
@@ -1414,62 +1766,23 @@ function buildInterpretation(state) {
     return { html: null, copyText: msg, text: msg };
   }
 
-  const tone = profileTone(state);
-  const q = (state.question ?? "").toString().trim();
-
-  const surfaceStoryLines = SLOT_DEFS.map((s) => {
-    const got = getPlacedInstance(state, "surface", s.code);
-    if (!got) return null;
-    const rev = got.inst.reversed ? " (reversed)" : "";
-    return `- Surface ${s.code} (${slotLens(s.code)}): ${got.card.name}${rev} — ${got.card.meaning}`;
-  }).filter(Boolean);
-
-  const stackLines = SLOT_DEFS.map((s) => {
-    const u = getPlacedInstance(state, "understory", s.code);
-    const sf = getPlacedInstance(state, "surface", s.code);
-    const h = getPlacedInstance(state, "horizon", s.code);
-    const parts = [];
-    if (u) parts.push(u.inst.face_up ? u.card.name : "Face-down");
-    if (sf) parts.push(sf.inst.face_up ? sf.card.name : "Face-down");
-    if (h) parts.push(h.inst.face_up ? h.card.name : "Face-down");
-    if (!parts.length) return null;
-    return `- Slot ${s.code} (${slotLens(s.code)}): ${parts.join(" → ")}`;
-  }).filter(Boolean);
-
-  const horizonD = getPlacedInstance(state, "horizon", "D");
-  const surfaceC = getPlacedInstance(state, "surface", "C");
-  const surfaceB = getPlacedInstance(state, "surface", "B");
-  const understoryA = getPlacedInstance(state, "understory", "A");
-
-  const nextSteps = [];
-  if (surfaceC) nextSteps.push(`- ${tone.verb} your support: ${surfaceC.card.keywords?.[0] ?? "support"} (Surface C).`);
-  if (surfaceB) nextSteps.push(`- ${tone.verb} the friction: ${surfaceB.card.keywords?.[0] ?? "challenge"} (Surface B).`);
-  if (understoryA) nextSteps.push(`- ${tone.verb} the hidden driver: ${understoryA.card.keywords?.[0] ?? "pattern"} (Understory A).`);
-  if (horizonD) nextSteps.push(`- ${tone.verb} toward the outcome: ${horizonD.card.keywords?.[0] ?? "direction"} (Horizon D).`);
-
-  const blocks = [];
-  blocks.push(`**Question**: ${q || "—"}`);
-  if (tone.opener) blocks.push(`**Tone**: ${tone.opener}`);
-  blocks.push("");
-  blocks.push("**Surface story (A→D)**");
-  blocks.push(surfaceStoryLines.length ? surfaceStoryLines.join("\n") : "- No Surface cards yet.");
-  blocks.push("");
-  blocks.push("**Vertical stacks (correspondences)**");
-  blocks.push(stackLines.length ? stackLines.join("\n") : "- Not enough cards placed yet.");
-  blocks.push("");
-  blocks.push("**Next steps**");
-  blocks.push(nextSteps.length ? nextSteps.slice(0, 3).join("\n") : "- Deal more cards to generate next steps.");
-
-  const copyText = blocks.join("\n");
-  const html = markdownToHtml(copyText);
-  return { html, copyText, text: null };
+  const seed = interpretationSeed(state);
+  const styleNorm = (style ?? "").toString().toLowerCase();
+  const built =
+    styleNorm === "structured"
+      ? buildInterpretationStructured(state, { seed })
+      : buildInterpretationNarrative(state, { seed });
+  return { html: built.html, copyText: built.copyText, text: null };
 }
 
 function renderInterpretation(state) {
   const el = byId("interpretation");
   if (!el) return;
-  const built = buildInterpretation(state);
+  const style =
+    (byId("interpretation-style")?.value ?? state.ui?.interpretation_style ?? "narrative").toString();
+  const built = buildInterpretation(state, { style });
   state.ui ||= {};
+  state.ui.interpretation_style = style;
   state.ui.last_interpretation_copy = built.copyText ?? "";
   if (built.html) el.innerHTML = `<div class="interpretation__body">${built.html}</div>`;
   else el.innerHTML = `<div class="inspect__empty">${(built.text ?? "").toString()}</div>`;
@@ -1551,6 +1864,13 @@ function renderAll(state) {
   const questionEl = byId("question");
   if (questionEl) questionEl.value = state.question ?? "";
   if (questionEl) questionEl.disabled = hasSubmittedQuestion(state);
+
+  const interpretationStyleEl = byId("interpretation-style");
+  if (interpretationStyleEl) {
+    state.ui ||= {};
+    state.ui.interpretation_style ||= "narrative";
+    interpretationStyleEl.value = state.ui.interpretation_style;
+  }
 
   const submitBtn = byId("submit-question");
   const qHint = byId("question-hint");
@@ -1726,6 +2046,18 @@ function wireControls(state, deck) {
       addEvent(state, "ui.deal_delay", { ms: getDealDelayMs() });
       saveState(state);
     });
+
+  const interpretationStyleEl = byId("interpretation-style");
+  if (interpretationStyleEl) {
+    interpretationStyleEl.value = (state.ui?.interpretation_style ?? "narrative").toString();
+    interpretationStyleEl.addEventListener("change", () => {
+      state.ui ||= {};
+      state.ui.interpretation_style = (interpretationStyleEl.value ?? "narrative").toString();
+      addEvent(state, "interpretation.style", { style: state.ui.interpretation_style });
+      saveState(state);
+      renderAll(state);
+    });
+  }
 
   const dealFull = byId("deal-full");
   if (dealFull)

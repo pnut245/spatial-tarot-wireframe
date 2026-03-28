@@ -265,6 +265,15 @@ body {
   gap: 10px;
 }
 
+.interpretation__body {
+  display: grid;
+  gap: 10px;
+}
+
+.interpretation__lede {
+  font-size: 13px;
+}
+
 .interpretation h3 {
   margin: 0;
   font-size: 12px;
@@ -345,6 +354,18 @@ textarea {
 .toggle input {
   width: auto;
   accent-color: var(--purple);
+}
+
+.toggle select {
+  width: auto;
+  color: var(--ink);
+  background: rgba(253, 253, 253, 0.95);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .toggle--range {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spatial Tarot (3D Web Wireframe)</title>
-    <link rel="stylesheet" href="./styles.css?v=20260328i" />
+    <link rel="stylesheet" href="./styles.css?v=20260328j" />
   </head>
   <body>
     <header class="topbar">
@@ -111,6 +111,15 @@
           <div class="cardlike cardlike--wide">
             <h2>Interpretation</h2>
             <div class="hint">Auto-generated reading: Surface story → vertical stacks → next steps.</div>
+            <div class="row row--tight" style="margin-top: 10px;">
+              <label class="toggle">
+                <span>Style</span>
+                <select id="interpretation-style">
+                  <option value="narrative" selected>Narrative</option>
+                  <option value="structured">Structured</option>
+                </select>
+              </label>
+            </div>
             <div class="interpretation" id="interpretation">
               <div class="inspect__empty">Deal cards to generate an interpretation.</div>
             </div>
@@ -238,6 +247,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260328i" defer></script>
+    <script src="./app.js?v=20260328j" defer></script>
   </body>
 </html>
