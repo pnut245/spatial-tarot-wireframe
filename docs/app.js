@@ -321,6 +321,16 @@ function clampText(value, max = 140) {
   return `${s.slice(0, max - 1)}…`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms | 0)));
+}
+
+function getDealDelayMs() {
+  const el = byId("deal-delay");
+  const n = Number.parseInt(el?.value ?? "0", 10);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
 function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -532,8 +542,7 @@ function renderHand(state) {
 }
 
 function renderSlots(state) {
-  const autoDeal = Boolean(byId("auto-deal")?.checked);
-  const next = autoDeal ? nextEmptyDealSlot(state) : null;
+  const next = nextEmptyDealSlot(state);
   const nextKey = next ? `${next.plane}:${next.code}` : null;
 
   const allSlots = document.querySelectorAll(".slot");
@@ -564,6 +573,7 @@ function renderSlots(state) {
       cardDiv.dataset.reversed = inst.reversed ? "true" : "false";
       cardDiv.style.setProperty("--plane-accent", planeAccent(plane));
       if (state.ui.selected_instance_id === instanceId) cardDiv.classList.add("tarot-card--selected");
+      if (state.ui.last_dealt_instance_id === instanceId) cardDiv.classList.add("tarot-card--dealt");
       cardDiv.innerHTML = cardMiniHtml({ inst, card, planeId: plane, slotCode: code, context: "placed" });
       cardDiv.addEventListener("click", () => {
         state.ui.selected_instance_id = instanceId;
@@ -665,6 +675,60 @@ function dealInstancesIntoNextSlots(state, instanceIds) {
     const next = nextEmptyDealSlot(state);
     if (!next) break;
     placeIntoSlot(state, instanceId, next.plane, next.code);
+  }
+}
+
+function updateDealDelayLabel() {
+  const valueEl = byId("deal-delay-value");
+  if (!valueEl) return;
+  const ms = getDealDelayMs();
+  valueEl.textContent = `${ms}ms`;
+}
+
+async function dealToBoardWithDelay(state, count, { kind }) {
+  state.ui ||= {};
+  state.ui.dealing = true;
+  const jobId = uid("dealjob");
+  state.ui.deal_job_id = jobId;
+  saveState(state);
+  renderAll(state);
+
+  updateDealDelayLabel();
+  const delayMs = getDealDelayMs();
+
+  for (let i = 0; i < count; i += 1) {
+    if (state.ui.deal_job_id !== jobId) break;
+    const next = nextEmptyDealSlot(state);
+    if (!next) break;
+
+    const instanceId = drawOneInstance(state, { kind });
+    if (!instanceId) break;
+
+    // Place directly to board (no hand interaction in auto-draw mode).
+    const key = `${next.plane}:${next.code}`;
+    state.placed[key] = instanceId;
+    state.instances[instanceId].plane = next.plane;
+    state.instances[instanceId].slot_code = next.code;
+    state.ui.selected_instance_id = instanceId;
+    state.ui.selected_hand_instance_id = null;
+    state.ui.last_dealt_instance_id = instanceId;
+
+    state.metrics ||= { first_draw_at: null, first_place_at: null };
+    if (!state.metrics.first_draw_at) state.metrics.first_draw_at = state.instances[instanceId].drawn_at;
+    if (!state.metrics.first_place_at) state.metrics.first_place_at = nowIso();
+
+    addEvent(state, "place", { instance_id: instanceId, plane: next.plane, slot_code: next.code });
+    saveState(state);
+    renderAll(state);
+
+    if (delayMs > 0 && i < count - 1) await sleep(delayMs);
+  }
+
+  if (state.ui.deal_job_id === jobId) {
+    state.ui.deal_job_id = null;
+    state.ui.dealing = false;
+    saveState(state);
+    renderAll(state);
   }
 }
 
@@ -794,8 +858,7 @@ function renderMetrics(state) {
   const ms = msBetweenIso(state.metrics?.first_draw_at, state.metrics?.first_place_at);
   const remaining = state.remaining?.length ?? 0;
   const seed = state.rng?.seed ?? "—";
-  const autoDeal = Boolean(byId("auto-deal")?.checked);
-  const next = autoDeal ? nextEmptyDealSlot(state) : null;
+  const next = nextEmptyDealSlot(state);
   const nextText = next ? `${planeLabel(next.plane)} ${next.code}` : "—";
 
   el.innerHTML = `
@@ -929,6 +992,16 @@ function renderAll(state) {
   const selected = state.ui.selected_instance_id;
   if (noteEl) noteEl.value = selected ? state.notes[selected]?.text ?? "" : "";
 
+  updateDealDelayLabel();
+  const isDealing = Boolean(state.ui?.dealing);
+  const dealBtns = ["draw-one", "draw-three", "draw-clarifier", "deal-full"];
+  for (const id of dealBtns) {
+    const btn = byId(id);
+    if (btn) btn.disabled = isDealing;
+  }
+  const delayEl = byId("deal-delay");
+  if (delayEl) delayEl.disabled = isDealing;
+
   renderHand(state);
   renderSlots(state);
   updateCorrespondenceHighlight(state);
@@ -944,39 +1017,6 @@ function showScreen(screen) {
   if (!home || !session) return;
   home.classList.toggle("hidden", screen !== "home");
   session.classList.toggle("hidden", screen !== "session");
-}
-
-function drawCards(state, count, { kind, autoDeal } = {}) {
-  const drawn = [];
-  state.seq ||= { next_draw_number: 1 };
-  for (let i = 0; i < count; i += 1) {
-    const instanceId = drawOneInstance(state, { kind });
-    if (!instanceId) break;
-    state.hand.unshift(instanceId);
-    drawn.push(instanceId);
-  }
-  if (drawn.length === 0) addEvent(state, "draw.none", { kind });
-
-  state.metrics ||= { first_draw_at: null, first_place_at: null };
-  if (drawn.length > 0 && !state.metrics.first_draw_at) {
-    state.metrics.first_draw_at = state.instances[drawn[0]].drawn_at;
-  }
-
-  if (autoDeal) {
-    addEvent(state, "deal.auto", { count: drawn.length });
-    dealInstancesIntoNextSlots(state, drawn);
-    // If any drawn cards remain in hand (e.g. no slots available), select the most recent one.
-    const remainingInHand = drawn.find((id) => state.hand.includes(id)) ?? null;
-    state.ui.selected_hand_instance_id = remainingInHand;
-    if (remainingInHand) state.ui.selected_instance_id = remainingInHand;
-    saveState(state);
-    renderAll(state);
-  } else {
-    state.ui.selected_hand_instance_id = drawn[0] ?? state.ui.selected_hand_instance_id;
-    state.ui.selected_instance_id = drawn[0] ?? state.ui.selected_instance_id;
-    saveState(state);
-    renderAll(state);
-  }
 }
 
 function resetState(deck) {
@@ -1019,6 +1059,7 @@ function wireControls(state, deck) {
         "Auto-deal:\\n" +
         "- Fills slots by stack: A then B then C then D\\n" +
         "- Within a stack: Understory → Surface → Horizon\\n" +
+        "- Deal pace adds a short delay between cards\\n" +
         "- The next target slot is highlighted in amber\\n\\n" +
         "Input:\\n" +
         "- Drag a card onto a slot\\n" +
@@ -1062,29 +1103,29 @@ function wireControls(state, deck) {
     });
 
   const drawOne = byId("draw-one");
-  if (drawOne)
-    drawOne.onclick = () => drawCards(state, 1, { kind: "draw", autoDeal: Boolean(byId("auto-deal")?.checked) });
+  if (drawOne) drawOne.onclick = () => dealToBoardWithDelay(state, 1, { kind: "draw" });
   const drawThree = byId("draw-three");
-  if (drawThree)
-    drawThree.onclick = () => drawCards(state, 3, { kind: "draw", autoDeal: Boolean(byId("auto-deal")?.checked) });
+  if (drawThree) drawThree.onclick = () => dealToBoardWithDelay(state, 3, { kind: "draw" });
   const drawClarifier = byId("draw-clarifier");
-  if (drawClarifier)
-    drawClarifier.onclick = () =>
-      drawCards(state, 1, { kind: "clarifier", autoDeal: Boolean(byId("auto-deal")?.checked) });
+  if (drawClarifier) drawClarifier.onclick = () => dealToBoardWithDelay(state, 1, { kind: "clarifier" });
 
-  const autoDeal = byId("auto-deal");
-  if (autoDeal)
-    autoDeal.addEventListener("change", () => {
-      addEvent(state, "ui.auto_deal", { enabled: Boolean(autoDeal.checked) });
+  const dealDelay = byId("deal-delay");
+  if (dealDelay)
+    dealDelay.addEventListener("input", () => {
+      updateDealDelayLabel();
+      addEvent(state, "ui.deal_delay", { ms: getDealDelayMs() });
       saveState(state);
-      renderAll(state);
     });
 
   const dealFull = byId("deal-full");
   if (dealFull)
     dealFull.onclick = () => {
-      // Fill as many empty slots as possible, up to 12.
-      dealEmptySlots(state, { kind: "deal_full", limit: 12 });
+      // Fill as many empty slots as possible, up to 12, with delays between cards.
+      const next = nextEmptyDealSlot(state);
+      if (!next) return;
+      const empty = DEAL_SEQUENCE.filter((s) => !state.placed[`${s.plane}:${s.code}`]).length;
+      const count = Math.min(12, empty);
+      void dealToBoardWithDelay(state, count, { kind: "deal_full" });
     };
 
   const saveNote = byId("save-note");
