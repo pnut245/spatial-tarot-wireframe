@@ -1503,6 +1503,117 @@ function profileNarrativeLens(state) {
   return `Based on your visual profile choices, your lens leans ${parts.join(" · ")}.`;
 }
 
+function profileArcGuidance(state) {
+  const elements = state.profile?.scores?.astrology_resonance?.elements ?? [];
+  const triad = state.profile?.scores?.enneagram?.top_triad ?? null;
+  const primary = elements[0] ?? null;
+  const tone = profileTone(state);
+
+  const guidance = {
+    tone,
+    lens: profileNarrativeLens(state),
+    strength: null,
+    watch: null,
+    strategy: null
+  };
+
+  switch (primary) {
+    case "fire":
+      guidance.strength = "You move fast when the path is clear; decisive action creates momentum.";
+      guidance.watch = "Watch for pushing through ambiguity too early; keep one moment for reframe.";
+      guidance.strategy = "Name the single bold move, then pick the smallest proving step.";
+      break;
+    case "earth":
+      guidance.strength = "You stabilize situations by making them concrete and workable.";
+      guidance.watch = "Watch for over-optimizing; sometimes the first workable step is enough.";
+      guidance.strategy = "Turn the reading into a checklist you can execute within 48 hours.";
+      break;
+    case "air":
+      guidance.strength = "You see patterns and can change outcomes by changing the story and frame.";
+      guidance.watch = "Watch for looping in analysis; close the loop with one testable action.";
+      guidance.strategy = "Write one sentence that reframes the problem, then behave as if it’s true for a day.";
+      break;
+    case "water":
+      guidance.strength = "You can sense the emotional truth and choose the move that restores integrity.";
+      guidance.watch = "Watch for absorbing everyone else’s feelings; protect your boundary.";
+      guidance.strategy = "Make one choice that honors the feeling under the facts, not just the facts.";
+      break;
+    default:
+      guidance.strength = "You can flex between lenses; pick the one that reduces confusion fastest.";
+      guidance.watch = "Watch for trying to satisfy every interpretation; choose one arc to test.";
+      guidance.strategy = "Pick one thread and follow it through Understory → Surface → Horizon.";
+      break;
+  }
+
+  switch (triad) {
+    case "head":
+      guidance.watch = guidance.watch
+        ? `${guidance.watch} (Head triad: don’t let scanning replace deciding.)`
+        : "Head triad: don’t let scanning replace deciding.";
+      break;
+    case "heart":
+      guidance.watch = guidance.watch
+        ? `${guidance.watch} (Heart triad: don’t let the “right image” override the true need.)`
+        : "Heart triad: don’t let the “right image” override the true need.";
+      break;
+    case "gut":
+      guidance.watch = guidance.watch
+        ? `${guidance.watch} (Gut triad: don’t confuse control with safety.)`
+        : "Gut triad: don’t confuse control with safety.";
+      break;
+    default:
+      break;
+  }
+
+  return guidance;
+}
+
+function questionLens(questionRaw) {
+  const q = (questionRaw ?? "").toString().trim().toLowerCase();
+  const lens = {
+    kind: "open", // decision | timing | how | why | open
+    domain: "general" // love | work | money | creativity | self | general
+  };
+
+  if (!q) return lens;
+
+  if (/\bshould\b|\bdo i\b|\bshould i\b|\bwhich\b|\bchoose\b|\bdecide\b/.test(q)) lens.kind = "decision";
+  else if (/\bwhen\b|\bwill\b|\bhow long\b|\btime\b|\btiming\b/.test(q)) lens.kind = "timing";
+  else if (/\bhow\b/.test(q)) lens.kind = "how";
+  else if (/\bwhy\b/.test(q)) lens.kind = "why";
+
+  if (/\blove\b|\bpartner\b|\brelationship\b|\bex\b|\bdating\b|\bmarriage\b/.test(q)) lens.domain = "love";
+  else if (/\bjob\b|\bcareer\b|\bwork\b|\bboss\b|\bclient\b|\bproject\b/.test(q)) lens.domain = "work";
+  else if (/\bmoney\b|\bfinance\b|\bincome\b|\bdebt\b|\bpay\b|\bprice\b|\brent\b/.test(q)) lens.domain = "money";
+  else if (/\bcreate\b|\bcreative\b|\bart\b|\bwrite\b|\bmusic\b|\bidea\b/.test(q)) lens.domain = "creativity";
+  else if (/\bmyself\b|\bidentity\b|\bconfidence\b|\banxiety\b|\bhabit\b|\bheal\b/.test(q)) lens.domain = "self";
+
+  return lens;
+}
+
+function cardHeadline(card, inst) {
+  if (!card || !inst) return "—";
+  const k0 = card.keywords?.[0] ?? null;
+  const kw = k0 ? ` (${k0})` : "";
+  const rev = inst.reversed ? " (reversed)" : "";
+  const face = inst.face_up ? "" : " (face-down)";
+  return `${card.name}${kw}${rev}${face}`;
+}
+
+function stackArcSummary(state, slotCode) {
+  const u = getPlacedInstance(state, "understory", slotCode);
+  const sf = getPlacedInstance(state, "surface", slotCode);
+  const h = getPlacedInstance(state, "horizon", slotCode);
+  const chain = [
+    u ? cardHeadline(u.card, u.inst) : null,
+    sf ? cardHeadline(sf.card, sf.inst) : null,
+    h ? cardHeadline(h.card, h.inst) : null
+  ].filter(Boolean);
+  if (!chain.length) return null;
+  const slot = slotLens(slotCode);
+  return `Slot ${slotCode} (${slot}) evolves ${chain.join(" → ")}.`;
+}
+
 function buildInterpretationStructured(state, { seed }) {
   const tone = profileTone(state);
   const q = (state.question ?? "").toString().trim();
@@ -1576,8 +1687,10 @@ function buildInterpretationStructured(state, { seed }) {
 }
 
 function buildInterpretationNarrative(state, { seed }) {
-  const tone = profileTone(state);
   const q = (state.question ?? "").toString().trim();
+  const qLens = questionLens(q);
+  const g = profileArcGuidance(state);
+  const tone = g.tone;
 
   const surfaceA = getPlacedInstance(state, "surface", "A");
   const surfaceB = getPlacedInstance(state, "surface", "B");
@@ -1587,44 +1700,54 @@ function buildInterpretationNarrative(state, { seed }) {
   const understoryA = getPlacedInstance(state, "understory", "A");
   const horizonD = getPlacedInstance(state, "horizon", "D");
 
-  const lens = profileNarrativeLens(state);
-
   const openers = [
-    "Let’s treat this spread like a short story with three layers.",
-    "We’ll read this like a scene: what’s under it, what’s on it, and what it’s becoming.",
-    "Think of this as a layered snapshot: hidden drivers, present pressures, and the trajectory."
-  ];
-  const bridge = [
-    "Here’s the throughline as it lands right now.",
-    "Here’s the narrative thread that connects the placements.",
-    "Here’s one coherent storyline you can test against your reality."
-  ];
-  const closer = [
-    "If one line feels especially true, follow that line in your next action.",
-    "If anything feels off, treat it as feedback: the spread is showing the story you’re currently telling.",
-    "If this lands, make it practical: choose one small action that proves the story can change."
+    "We’ll build a single narrative arc across planes: what’s underneath → what’s happening → what it becomes.",
+    "This reading works best as one story with three acts: Understory, Surface, Horizon.",
+    "Let’s synthesize this into one arc that answers your question, not twelve disconnected meanings."
   ];
 
-  const bestStacks = SLOT_DEFS.map((s) => {
-    const u = getPlacedInstance(state, "understory", s.code);
-    const sf = getPlacedInstance(state, "surface", s.code);
-    const h = getPlacedInstance(state, "horizon", s.code);
-    const count = [u, sf, h].filter(Boolean).length;
-    return { code: s.code, count, u, sf, h };
-  })
+  const domainLine =
+    qLens.domain === "love"
+      ? "This is a relationship lens: prioritize clarity and consent over projection."
+      : qLens.domain === "work"
+        ? "This is a work lens: optimize for leverage, alignment, and timing."
+        : qLens.domain === "money"
+          ? "This is a money lens: prefer stability, downside protection, and clear tradeoffs."
+          : qLens.domain === "creativity"
+            ? "This is a creative lens: protect momentum and keep the work visible."
+            : qLens.domain === "self"
+              ? "This is a self lens: treat the reading as behavior change, not identity verdict."
+              : null;
+
+  const bestStackCodes = SLOT_DEFS.map((s) => s.code)
+    .map((code) => {
+      const u = getPlacedInstance(state, "understory", code);
+      const sf = getPlacedInstance(state, "surface", code);
+      const h = getPlacedInstance(state, "horizon", code);
+      const count = [u, sf, h].filter(Boolean).length;
+      return { code, count };
+    })
     .filter((x) => x.count > 0)
     .sort((a, b) => b.count - a.count || (a.code < b.code ? -1 : 1))
-    .slice(0, 2);
+    .slice(0, 2)
+    .map((x) => x.code);
 
-  const stackParagraphs = bestStacks.map((st, i) => {
-    const parts = [];
-    if (st.u) parts.push(`Understory shows ${st.u.inst.face_up ? st.u.card.name : "something not yet revealed"} (${planeLens("understory")}).`);
-    if (st.sf) parts.push(`Surface names ${st.sf.inst.face_up ? st.sf.card.name : "an unnamed present factor"} (${planeLens("surface")}).`);
-    if (st.h) parts.push(`Horizon points to ${st.h.inst.face_up ? st.h.card.name : "an unrevealed outcome"} (${planeLens("horizon")}).`);
-    const slot = slotLens(st.code);
-    const lead = i === 0 ? "The strongest correspondence column is" : "A second correspondence column is";
-    return `${lead} Slot ${st.code} (${slot}). ${parts.join(" ")}`;
-  });
+  const stackArcLines = bestStackCodes.map((code) => stackArcSummary(state, code)).filter(Boolean);
+
+  // Thesis: answer the question in a conditional, non-fortune-telling way.
+  const thesisParts = [];
+  if (qLens.kind === "decision") thesisParts.push("As a decision reading, this spread points to the best next move rather than a fixed destiny.");
+  else if (qLens.kind === "timing") thesisParts.push("As a timing reading, treat Horizon as “trajectory if you keep doing what you’re doing” (not a promise).");
+  else if (qLens.kind === "how") thesisParts.push("As a “how” reading, focus on the resource (C) and the first actionable shift.");
+  else if (qLens.kind === "why") thesisParts.push("As a “why” reading, Understory is the key: the hidden driver explains the pattern.");
+  else thesisParts.push("As an open reading, we’ll synthesize the clearest throughline and the next experiment.");
+
+  if (surfaceA) thesisParts.push(`Your frame is ${cardHeadline(surfaceA.card, surfaceA.inst)} (Surface A).`);
+  if (surfaceB) thesisParts.push(`The pressure point is ${cardHeadline(surfaceB.card, surfaceB.inst)} (Surface B).`);
+  if (surfaceC) thesisParts.push(`Your leverage is ${cardHeadline(surfaceC.card, surfaceC.inst)} (Surface C).`);
+  if (horizonD) thesisParts.push(`The trajectory signal is ${cardHeadline(horizonD.card, horizonD.inst)} (Horizon D).`);
+
+  const thesis = thesisParts.join(" ");
 
   const detailLines = [];
   if (understoryA) detailLines.push(describeCardInContext({ ...understoryA, planeId: "understory", slotCode: "A" }));
@@ -1638,60 +1761,41 @@ function buildInterpretationNarrative(state, { seed }) {
   narrative.push(`Question: ${q || "—"}`);
   narrative.push("");
   narrative.push(`${tone.opener ? `${tone.opener} ` : ""}${pickFromSeed(seed, openers, 1)}`);
-  if (lens) narrative.push(lens);
+  if (g.lens) narrative.push(g.lens);
+  if (domainLine) narrative.push(domainLine);
   narrative.push("");
-  narrative.push(pickFromSeed(seed, bridge, 2));
+  narrative.push("Arc (synthesized answer)");
+  narrative.push(thesis);
+  narrative.push("");
 
-  if (surfaceA) {
-    const rev = surfaceA.inst.reversed ? " (reversed)" : "";
-    const face = surfaceA.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `On the Surface, the theme is ${surfaceA.card.name}${rev}${face}: ${surfaceA.card.meaning}`
-    );
-  }
-  if (surfaceB) {
-    const rev = surfaceB.inst.reversed ? " (reversed)" : "";
-    const face = surfaceB.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `Crossing that, ${surfaceB.card.name}${rev}${face} shows the friction you have to integrate rather than “solve”: ${surfaceB.card.meaning}`
-    );
-  }
-  if (surfaceC) {
-    const rev = surfaceC.inst.reversed ? " (reversed)" : "";
-    const face = surfaceC.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `Your resource is ${surfaceC.card.name}${rev}${face}. If you need leverage, start there: ${surfaceC.card.meaning}`
-    );
-  }
-  if (surfaceD) {
-    const rev = surfaceD.inst.reversed ? " (reversed)" : "";
-    const face = surfaceD.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `The Surface outcome reads as ${surfaceD.card.name}${rev}${face}: ${surfaceD.card.meaning}`
-    );
-  }
-  if (understoryA) {
-    const rev = understoryA.inst.reversed ? " (reversed)" : "";
-    const face = understoryA.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `Underneath the whole situation, ${understoryA.card.name}${rev}${face} suggests the hidden driver: ${understoryA.card.meaning}`
-    );
-  }
-  if (horizonD) {
-    const rev = horizonD.inst.reversed ? " (reversed)" : "";
-    const face = horizonD.inst.face_up ? "" : " (face-down)";
-    narrative.push(
-      `Looking ahead, ${horizonD.card.name}${rev}${face} is the trajectory signal: ${horizonD.card.meaning}`
-    );
-  }
+  narrative.push("Act I — Understory (what’s underneath)");
+  if (understoryA) narrative.push(`Hidden driver: ${cardHeadline(understoryA.card, understoryA.inst)}. ${understoryA.card.meaning}`);
+  else narrative.push("Hidden driver: — (deal more cards for an Understory anchor).");
+  narrative.push("");
 
-  if (stackParagraphs.length) {
+  narrative.push("Act II — Surface (what’s happening now)");
+  if (surfaceA) narrative.push(`Frame: ${cardHeadline(surfaceA.card, surfaceA.inst)}. ${surfaceA.card.meaning}`);
+  if (surfaceB) narrative.push(`Friction: ${cardHeadline(surfaceB.card, surfaceB.inst)}. ${surfaceB.card.meaning}`);
+  if (surfaceC) narrative.push(`Resource: ${cardHeadline(surfaceC.card, surfaceC.inst)}. ${surfaceC.card.meaning}`);
+  if (surfaceD) narrative.push(`Near outcome: ${cardHeadline(surfaceD.card, surfaceD.inst)}. ${surfaceD.card.meaning}`);
+  if (!surfaceA && !surfaceB && !surfaceC && !surfaceD) narrative.push("Surface: — (deal Surface cards to form the present story).");
+  narrative.push("");
+
+  narrative.push("Act III — Horizon (what it becomes if you continue)");
+  if (horizonD) narrative.push(`Trajectory: ${cardHeadline(horizonD.card, horizonD.inst)}. ${horizonD.card.meaning}`);
+  else narrative.push("Trajectory: — (deal a Horizon anchor for the next chapter).");
+  narrative.push("");
+
+  if (stackArcLines.length) {
+    narrative.push("Correspondence subplot (vertical stacks)");
+    narrative.push(stackArcLines.map((s) => `- ${s}`).join("\n"));
     narrative.push("");
-    narrative.push(stackParagraphs.join("\n"));
   }
 
-  narrative.push("");
-  narrative.push(`${pickFromSeed(seed, closer, 3)}`);
+  narrative.push("How your profile lens shapes the move");
+  if (g.strength) narrative.push(`Strength: ${g.strength}`);
+  if (g.watch) narrative.push(`Watch: ${g.watch}`);
+  if (g.strategy) narrative.push(`Move: ${g.strategy}`);
 
   const nextSteps = [];
   const k = (card) => card?.keywords?.[0] ?? null;
@@ -1703,12 +1807,20 @@ function buildInterpretationNarrative(state, { seed }) {
   narrative.push("");
   narrative.push("Next steps:");
   narrative.push(nextSteps.length ? nextSteps.slice(0, 3).map((s) => `- ${s}`).join("\n") : "- Deal more cards to generate next steps.");
-
-  narrative.push("");
-  narrative.push("Placed card details:");
-  narrative.push(detailLines.length ? detailLines.join("\n") : "—");
+  if (detailLines.length) {
+    narrative.push("");
+    narrative.push("Placed card details (for reference):");
+    narrative.push(detailLines.join("\n"));
+  }
 
   const copyText = narrative.join("\n");
+
+  const act2Paragraphs = [
+    surfaceA ? `Frame: ${cardHeadline(surfaceA.card, surfaceA.inst)}. ${surfaceA.card.meaning}` : null,
+    surfaceB ? `Friction: ${cardHeadline(surfaceB.card, surfaceB.inst)}. ${surfaceB.card.meaning}` : null,
+    surfaceC ? `Resource: ${cardHeadline(surfaceC.card, surfaceC.inst)}. ${surfaceC.card.meaning}` : null,
+    surfaceD ? `Near outcome: ${cardHeadline(surfaceD.card, surfaceD.inst)}. ${surfaceD.card.meaning}` : null
+  ].filter(Boolean);
 
   const html = `
     <p class="interpretation__lede"><strong>Question:</strong> ${escapeHtml(q || "—")}</p>
@@ -1717,36 +1829,45 @@ function buildInterpretationNarrative(state, { seed }) {
         ? `<p><strong>Tone:</strong> ${escapeHtml(tone.opener)}</p>`
         : ""
     }
-    ${lens ? `<p class="hint">${escapeHtml(lens)}</p>` : ""}
+    ${g.lens ? `<p class="hint">${escapeHtml(g.lens)}</p>` : ""}
+    ${domainLine ? `<p class="hint">${escapeHtml(domainLine)}</p>` : ""}
     <p>${escapeHtml(pickFromSeed(seed, openers, 1))}</p>
-    <p>${escapeHtml(pickFromSeed(seed, bridge, 2))}</p>
+
+    <h3>Arc (synthesized answer)</h3>
+    <p>${escapeHtml(thesis)}</p>
+
+    <h3>Act I — Understory</h3>
     ${
-      [
-        surfaceA
-          ? `On the Surface, the theme is ${surfaceA.card.name}${surfaceA.inst.reversed ? " (reversed)" : ""}${surfaceA.inst.face_up ? "" : " (face-down)"}: ${surfaceA.card.meaning}`
-          : null,
-        surfaceB
-          ? `Crossing that, ${surfaceB.card.name}${surfaceB.inst.reversed ? " (reversed)" : ""}${surfaceB.inst.face_up ? "" : " (face-down)"} shows the friction you have to integrate rather than “solve”: ${surfaceB.card.meaning}`
-          : null,
-        surfaceC
-          ? `Your resource is ${surfaceC.card.name}${surfaceC.inst.reversed ? " (reversed)" : ""}${surfaceC.inst.face_up ? "" : " (face-down)"}. If you need leverage, start there: ${surfaceC.card.meaning}`
-          : null,
-        surfaceD
-          ? `The Surface outcome reads as ${surfaceD.card.name}${surfaceD.inst.reversed ? " (reversed)" : ""}${surfaceD.inst.face_up ? "" : " (face-down)"}: ${surfaceD.card.meaning}`
-          : null,
-        understoryA
-          ? `Underneath the whole situation, ${understoryA.card.name}${understoryA.inst.reversed ? " (reversed)" : ""}${understoryA.inst.face_up ? "" : " (face-down)"} suggests the hidden driver: ${understoryA.card.meaning}`
-          : null,
-        horizonD
-          ? `Looking ahead, ${horizonD.card.name}${horizonD.inst.reversed ? " (reversed)" : ""}${horizonD.inst.face_up ? "" : " (face-down)"} is the trajectory signal: ${horizonD.card.meaning}`
-          : null
-      ]
-        .filter(Boolean)
-        .map((p) => `<p>${escapeHtml(p)}</p>`)
-        .join("")
+      understoryA
+        ? `<p>${escapeHtml(`Hidden driver: ${cardHeadline(understoryA.card, understoryA.inst)}. ${understoryA.card.meaning}`)}</p>`
+        : `<p class="hint">Deal an Understory anchor for the hidden driver.</p>`
     }
-    ${stackParagraphs.length ? `<p>${escapeHtml(stackParagraphs.join(" "))}</p>` : ""}
-    <p>${escapeHtml(pickFromSeed(seed, closer, 3))}</p>
+
+    <h3>Act II — Surface</h3>
+    ${
+      act2Paragraphs.length
+        ? act2Paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("")
+        : `<p class="hint">Deal Surface cards to form the present story.</p>`
+    }
+
+    <h3>Act III — Horizon</h3>
+    ${
+      horizonD
+        ? `<p>${escapeHtml(`Trajectory: ${cardHeadline(horizonD.card, horizonD.inst)}. ${horizonD.card.meaning}`)}</p>`
+        : `<p class="hint">Deal a Horizon anchor for the trajectory.</p>`
+    }
+
+    ${
+      stackArcLines.length
+        ? `<h3>Correspondence subplot</h3><ul>${stackArcLines.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+        : ""
+    }
+
+    <h3>Profile integration</h3>
+    ${g.strength ? `<p><strong>Strength:</strong> ${escapeHtml(g.strength)}</p>` : ""}
+    ${g.watch ? `<p><strong>Watch:</strong> ${escapeHtml(g.watch)}</p>` : ""}
+    ${g.strategy ? `<p><strong>Move:</strong> ${escapeHtml(g.strategy)}</p>` : ""}
+
     <h3>Next steps</h3>
     ${
       nextSteps.length
