@@ -1,4 +1,5 @@
 const STORAGE_KEY = "spatial-tarot-wireframe:v1";
+const APP_VERSION = "2026-03-28-graphic-grid";
 
 // Embedded so this works when opening `index.html` directly (no local server needed).
 const DECK = {
@@ -251,6 +252,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function byId(id) {
+  return document.getElementById(id);
+}
+
 function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
@@ -425,7 +430,8 @@ function ensureSlotContainers() {
 }
 
 function renderHand(state) {
-  const handEl = document.getElementById("hand");
+  const handEl = byId("hand");
+  if (!handEl) return;
   handEl.innerHTML = "";
   if (state.hand.length === 0) {
     const empty = document.createElement("div");
@@ -565,7 +571,8 @@ function placeIntoSlot(state, instanceId, plane, code) {
 }
 
 function renderInspect(state) {
-  const inspectEl = document.getElementById("inspect");
+  const inspectEl = byId("inspect");
+  if (!inspectEl) return;
   inspectEl.innerHTML = "";
 
   const instanceId = state.ui.selected_instance_id;
@@ -601,21 +608,27 @@ function renderInspect(state) {
     </div>
   `;
 
-  document.getElementById("flip-card").onclick = () => {
+  const flipBtn = byId("flip-card");
+  if (flipBtn)
+    flipBtn.onclick = () => {
     inst.face_up = !inst.face_up;
     addEvent(state, "card.flip", { instance_id: instanceId, face_up: inst.face_up });
     saveState(state);
     renderAll(state);
   };
 
-  document.getElementById("toggle-reversal").onclick = () => {
+  const reverseBtn = byId("toggle-reversal");
+  if (reverseBtn)
+    reverseBtn.onclick = () => {
     inst.reversed = !inst.reversed;
     addEvent(state, "card.reverse", { instance_id: instanceId, reversed: inst.reversed });
     saveState(state);
     renderAll(state);
   };
 
-  document.getElementById("return-to-hand").onclick = () => {
+  const toHandBtn = byId("return-to-hand");
+  if (toHandBtn)
+    toHandBtn.onclick = () => {
     // Clear placement mapping.
     for (const [k, v] of Object.entries(state.placed)) {
       if (v === instanceId) delete state.placed[k];
@@ -630,7 +643,8 @@ function renderInspect(state) {
 }
 
 function renderLog(state) {
-  const logEl = document.getElementById("log");
+  const logEl = byId("log");
+  if (!logEl) return;
   logEl.innerHTML = "";
   const rows = state.events.slice(-80).reverse();
   for (const evt of rows) {
@@ -643,7 +657,7 @@ function renderLog(state) {
 }
 
 function renderMetrics(state) {
-  const el = document.getElementById("metrics");
+  const el = byId("metrics");
   if (!el) return;
 
   const drawnCount = Object.keys(state.instances).length;
@@ -660,7 +674,7 @@ function renderMetrics(state) {
 }
 
 function renderCorrespondence(state) {
-  const el = document.getElementById("correspondence");
+  const el = byId("correspondence");
   if (!el) return;
 
   const code = getActiveSlotCode(state);
@@ -712,10 +726,11 @@ function downloadJson(filename, obj) {
 }
 
 function openModal({ title, text, onDownload, downloadLabel }) {
-  const modal = document.getElementById("modal");
-  const pre = document.getElementById("modal-pre");
-  const titleEl = document.getElementById("modal-title");
-  const dl = document.getElementById("download-json");
+  const modal = byId("modal");
+  const pre = byId("modal-pre");
+  const titleEl = byId("modal-title");
+  const dl = byId("download-json");
+  if (!modal || !pre || !titleEl || !dl) return;
   const footer = dl.closest(".modal__footer");
 
   titleEl.textContent = title;
@@ -723,8 +738,10 @@ function openModal({ title, text, onDownload, downloadLabel }) {
   modal.classList.remove("hidden");
 
   const close = () => modal.classList.add("hidden");
-  document.getElementById("modal-close").onclick = close;
-  document.getElementById("modal-backdrop").onclick = close;
+  const closeBtn = byId("modal-close");
+  const backdrop = byId("modal-backdrop");
+  if (closeBtn) closeBtn.onclick = close;
+  if (backdrop) backdrop.onclick = close;
 
   const hasDownload = typeof onDownload === "function";
   footer?.classList.toggle("hidden", !hasDownload);
@@ -766,11 +783,12 @@ function exportState(state) {
 }
 
 function renderAll(state) {
-  document.getElementById("question").value = state.question ?? "";
+  const questionEl = byId("question");
+  if (questionEl) questionEl.value = state.question ?? "";
 
-  const noteEl = document.getElementById("note");
+  const noteEl = byId("note");
   const selected = state.ui.selected_instance_id;
-  noteEl.value = selected ? state.notes[selected]?.text ?? "" : "";
+  if (noteEl) noteEl.value = selected ? state.notes[selected]?.text ?? "" : "";
 
   renderHand(state);
   renderSlots(state);
@@ -782,8 +800,9 @@ function renderAll(state) {
 }
 
 function showScreen(screen) {
-  const home = document.getElementById("screen-home");
-  const session = document.getElementById("screen-session");
+  const home = byId("screen-home");
+  const session = byId("screen-session");
+  if (!home || !session) return;
   home.classList.toggle("hidden", screen !== "home");
   session.classList.toggle("hidden", screen !== "session");
 }
@@ -834,17 +853,23 @@ function resetState(deck) {
 }
 
 function wireControls(state, deck) {
-  document.getElementById("home-start").onclick = () => {
-    showScreen("session");
-    addEvent(state, "ui.start", {});
-    saveState(state);
-    renderAll(state);
-  };
+  const homeStart = byId("home-start");
+  if (homeStart)
+    homeStart.onclick = () => {
+      showScreen("session");
+      addEvent(state, "ui.start", {});
+      saveState(state);
+      renderAll(state);
+    };
 
-  document.getElementById("nav-home").onclick = () => showScreen("home");
-  document.getElementById("nav-session").onclick = () => showScreen("session");
+  const navHome = byId("nav-home");
+  if (navHome) navHome.onclick = () => showScreen("home");
+  const navSession = byId("nav-session");
+  if (navSession) navSession.onclick = () => showScreen("session");
 
-  document.getElementById("nav-help").onclick = () => {
+  const navHelp = byId("nav-help");
+  if (navHelp)
+    navHelp.onclick = () => {
     addEvent(state, "ui.help", {});
     saveState(state);
     openModal({
@@ -867,7 +892,9 @@ function wireControls(state, deck) {
     });
   };
 
-  document.getElementById("nav-export").onclick = () => {
+  const navExport = byId("nav-export");
+  if (navExport)
+    navExport.onclick = () => {
     const exported = exportState(state);
     openModal({
       title: "Export (copy/paste or download)",
@@ -877,38 +904,51 @@ function wireControls(state, deck) {
     });
   };
 
-  document.getElementById("nav-reset").onclick = () => {
+  const navReset = byId("nav-reset");
+  if (navReset)
+    navReset.onclick = () => {
     const next = resetState(deck);
     Object.assign(state, next);
     showScreen("home");
     renderAll(state);
   };
 
-  document.getElementById("question").addEventListener("input", (e) => {
-    const value = e.target.value ?? "";
-    state.question = value;
-    addEvent(state, "question.update", { value: clampText(value, 280) });
-    saveState(state);
-  });
+  const questionEl = byId("question");
+  if (questionEl)
+    questionEl.addEventListener("input", (e) => {
+      const value = e.target.value ?? "";
+      state.question = value;
+      addEvent(state, "question.update", { value: clampText(value, 280) });
+      saveState(state);
+    });
 
-  document.getElementById("draw-one").onclick = () => drawCards(state, 1, { kind: "draw" });
-  document.getElementById("draw-three").onclick = () => drawCards(state, 3, { kind: "draw" });
-  document.getElementById("draw-clarifier").onclick = () => drawCards(state, 1, { kind: "clarifier" });
+  const drawOne = byId("draw-one");
+  if (drawOne) drawOne.onclick = () => drawCards(state, 1, { kind: "draw" });
+  const drawThree = byId("draw-three");
+  if (drawThree) drawThree.onclick = () => drawCards(state, 3, { kind: "draw" });
+  const drawClarifier = byId("draw-clarifier");
+  if (drawClarifier) drawClarifier.onclick = () => drawCards(state, 1, { kind: "clarifier" });
 
-  document.getElementById("save-note").onclick = () => {
+  const saveNote = byId("save-note");
+  if (saveNote)
+    saveNote.onclick = () => {
     const instanceId = state.ui.selected_instance_id;
     if (!instanceId || !state.instances[instanceId]) return;
-    const text = (document.getElementById("note").value ?? "").toString();
+    const noteInput = byId("note");
+    const text = (noteInput?.value ?? "").toString();
     state.notes[instanceId] = { text, updated_at: nowIso() };
     addEvent(state, "note.save", { instance_id: instanceId, length: text.length });
     saveState(state);
     renderAll(state);
   };
 
-  document.getElementById("clear-note").onclick = () => {
+  const clearNote = byId("clear-note");
+  if (clearNote)
+    clearNote.onclick = () => {
     const instanceId = state.ui.selected_instance_id;
     if (!instanceId || !state.instances[instanceId]) {
-      document.getElementById("note").value = "";
+      const noteInput = byId("note");
+      if (noteInput) noteInput.value = "";
       return;
     }
     delete state.notes[instanceId];
@@ -961,5 +1001,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err);
-  alert(`Wireframe failed to start: ${err.message}`);
+  alert(`Wireframe failed to start (${APP_VERSION}): ${err.message}`);
 });
