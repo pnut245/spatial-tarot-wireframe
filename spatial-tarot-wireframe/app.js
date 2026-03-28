@@ -180,6 +180,34 @@ function planeAccent(planeId) {
   return PLANE_ACCENTS[planeId] ?? PLANE_ACCENTS.none;
 }
 
+function slotLens(code) {
+  switch (code) {
+    case "A":
+      return "Theme / frame";
+    case "B":
+      return "Crossing influence";
+    case "C":
+      return "Resource / support";
+    case "D":
+      return "Trajectory / outcome";
+    default:
+      return "Slot";
+  }
+}
+
+function planeLens(planeId) {
+  switch (planeId) {
+    case "understory":
+      return "hidden drivers";
+    case "surface":
+      return "what’s happening now";
+    case "horizon":
+      return "where this is heading";
+    default:
+      return "context";
+  }
+}
+
 function majorNumber(cardId) {
   const m = (cardId ?? "").match(/major-(\d+)/);
   if (!m) return null;
@@ -418,7 +446,8 @@ function defaultState(deck) {
       profile_step: 0,
       dealing: false,
       deal_job_id: null,
-      last_dealt_instance_id: null
+      last_dealt_instance_id: null,
+      last_interpretation_copy: ""
     },
     profile: {
       version: 1,
@@ -434,6 +463,37 @@ function defaultState(deck) {
     },
     _cardById: cardById
   };
+}
+
+async function copyTextToClipboard(text) {
+  const value = (text ?? "").toString();
+  if (!value) return false;
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to legacy copy for file:// or permissions issues.
+    }
+  }
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "true");
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    ta.style.left = "-1000px";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, value.length);
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return Boolean(ok);
+  } catch {
+    return false;
+  }
 }
 
 function addEvent(state, type, payload = {}) {
@@ -456,6 +516,46 @@ function addScores(target, delta) {
   for (const [k, v] of Object.entries(delta)) {
     target[k] = (target[k] ?? 0) + (v ?? 0);
   }
+}
+
+function profileTone(state) {
+  const elements = state.profile?.scores?.astrology_resonance?.elements ?? [];
+  const triad = state.profile?.scores?.enneagram?.top_triad ?? null;
+
+  const primary = elements[0] ?? null;
+  const tone = {
+    opener: "",
+    verb: "Notice",
+    vibe: "balanced",
+    triad
+  };
+
+  switch (primary) {
+    case "fire":
+      tone.verb = "Do";
+      tone.vibe = "direct";
+      tone.opener = "Move toward the clearest action.";
+      break;
+    case "earth":
+      tone.verb = "Build";
+      tone.vibe = "practical";
+      tone.opener = "Anchor this in a concrete next step.";
+      break;
+    case "air":
+      tone.verb = "Consider";
+      tone.vibe = "reflective";
+      tone.opener = "Track the pattern and the story you’re telling.";
+      break;
+    case "water":
+      tone.verb = "Feel";
+      tone.vibe = "empathetic";
+      tone.opener = "Listen for the emotional truth underneath the facts.";
+      break;
+    default:
+      break;
+  }
+
+  return tone;
 }
 
 function topKeys(scoreMap, n = 3) {
@@ -1280,6 +1380,101 @@ function renderCorrespondence(state) {
   `;
 }
 
+function markdownToHtml(md) {
+  // Tiny markdown subset: **bold**, line breaks.
+  const esc = (s) =>
+    (s ?? "")
+      .toString()
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  const safe = esc(md);
+  const bolded = safe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  return bolded.replace(/\n/g, "<br/>");
+}
+
+function getPlacedInstance(state, planeId, slotCode) {
+  const key = `${planeId}:${slotCode}`;
+  const instanceId = state.placed?.[key] ?? null;
+  if (!instanceId) return null;
+  const inst = state.instances?.[instanceId] ?? null;
+  const card = inst ? state._cardById?.[inst.card_id] ?? null : null;
+  return inst && card ? { inst, card } : null;
+}
+
+function buildInterpretation(state) {
+  if (!hasSubmittedQuestion(state)) {
+    const msg = "Submit a question to deal cards and generate an interpretation.";
+    return { html: null, copyText: msg, text: msg };
+  }
+
+  const placedCount = Object.keys(state.placed ?? {}).length;
+  if (placedCount === 0) {
+    const msg = "Deal cards to generate an interpretation.";
+    return { html: null, copyText: msg, text: msg };
+  }
+
+  const tone = profileTone(state);
+  const q = (state.question ?? "").toString().trim();
+
+  const surfaceStoryLines = SLOT_DEFS.map((s) => {
+    const got = getPlacedInstance(state, "surface", s.code);
+    if (!got) return null;
+    const rev = got.inst.reversed ? " (reversed)" : "";
+    return `- Surface ${s.code} (${slotLens(s.code)}): ${got.card.name}${rev} — ${got.card.meaning}`;
+  }).filter(Boolean);
+
+  const stackLines = SLOT_DEFS.map((s) => {
+    const u = getPlacedInstance(state, "understory", s.code);
+    const sf = getPlacedInstance(state, "surface", s.code);
+    const h = getPlacedInstance(state, "horizon", s.code);
+    const parts = [];
+    if (u) parts.push(u.inst.face_up ? u.card.name : "Face-down");
+    if (sf) parts.push(sf.inst.face_up ? sf.card.name : "Face-down");
+    if (h) parts.push(h.inst.face_up ? h.card.name : "Face-down");
+    if (!parts.length) return null;
+    return `- Slot ${s.code} (${slotLens(s.code)}): ${parts.join(" → ")}`;
+  }).filter(Boolean);
+
+  const horizonD = getPlacedInstance(state, "horizon", "D");
+  const surfaceC = getPlacedInstance(state, "surface", "C");
+  const surfaceB = getPlacedInstance(state, "surface", "B");
+  const understoryA = getPlacedInstance(state, "understory", "A");
+
+  const nextSteps = [];
+  if (surfaceC) nextSteps.push(`- ${tone.verb} your support: ${surfaceC.card.keywords?.[0] ?? "support"} (Surface C).`);
+  if (surfaceB) nextSteps.push(`- ${tone.verb} the friction: ${surfaceB.card.keywords?.[0] ?? "challenge"} (Surface B).`);
+  if (understoryA) nextSteps.push(`- ${tone.verb} the hidden driver: ${understoryA.card.keywords?.[0] ?? "pattern"} (Understory A).`);
+  if (horizonD) nextSteps.push(`- ${tone.verb} toward the outcome: ${horizonD.card.keywords?.[0] ?? "direction"} (Horizon D).`);
+
+  const blocks = [];
+  blocks.push(`**Question**: ${q || "—"}`);
+  if (tone.opener) blocks.push(`**Tone**: ${tone.opener}`);
+  blocks.push("");
+  blocks.push("**Surface story (A→D)**");
+  blocks.push(surfaceStoryLines.length ? surfaceStoryLines.join("\n") : "- No Surface cards yet.");
+  blocks.push("");
+  blocks.push("**Vertical stacks (correspondences)**");
+  blocks.push(stackLines.length ? stackLines.join("\n") : "- Not enough cards placed yet.");
+  blocks.push("");
+  blocks.push("**Next steps**");
+  blocks.push(nextSteps.length ? nextSteps.slice(0, 3).join("\n") : "- Deal more cards to generate next steps.");
+
+  const copyText = blocks.join("\n");
+  const html = markdownToHtml(copyText);
+  return { html, copyText, text: null };
+}
+
+function renderInterpretation(state) {
+  const el = byId("interpretation");
+  if (!el) return;
+  const built = buildInterpretation(state);
+  state.ui ||= {};
+  state.ui.last_interpretation_copy = built.copyText ?? "";
+  if (built.html) el.innerHTML = `<div class="interpretation__body">${built.html}</div>`;
+  else el.innerHTML = `<div class="inspect__empty">${(built.text ?? "").toString()}</div>`;
+}
+
 function downloadJson(filename, obj) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1387,6 +1582,12 @@ function renderAll(state) {
   updateCorrespondenceHighlight(state);
   renderInspect(state);
   renderCorrespondence(state);
+  renderInterpretation(state);
+
+  const copyBtn = byId("copy-interpretation");
+  const canCopy = hasSubmittedQuestion(state) && Object.keys(state.placed ?? {}).length > 0;
+  if (copyBtn) copyBtn.disabled = !canCopy;
+
   renderMetrics(state);
   renderLog(state);
 }
@@ -1536,6 +1737,26 @@ function wireControls(state, deck) {
       const empty = DEAL_SEQUENCE.filter((s) => !state.placed[`${s.plane}:${s.code}`]).length;
       const count = Math.min(12, empty);
       void dealToBoardWithDelay(state, count, { kind: "deal_full" });
+    };
+
+  const copyInterpretation = byId("copy-interpretation");
+  if (copyInterpretation)
+    copyInterpretation.onclick = async () => {
+      const text = (state.ui?.last_interpretation_copy ?? "").toString();
+      if (!text.trim()) return;
+      const ok = await copyTextToClipboard(text);
+      addEvent(state, "interpretation.copy", { ok, length: text.length });
+      saveState(state);
+
+      if (ok) {
+        const prev = copyInterpretation.textContent;
+        copyInterpretation.textContent = "Copied";
+        copyInterpretation.disabled = true;
+        setTimeout(() => {
+          copyInterpretation.textContent = prev ?? "Copy reading";
+          renderAll(state);
+        }, 900);
+      }
     };
 
   const profileSkip = byId("profile-skip");

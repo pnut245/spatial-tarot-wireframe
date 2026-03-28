@@ -246,10 +246,44 @@ body {
   align-items: start;
 }
 
+.cardlike--wide {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 1200px) {
   .sessionBelow {
     grid-template-columns: 1fr;
   }
+  .cardlike--wide {
+    grid-column: auto;
+  }
+}
+
+.interpretation {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.interpretation h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  opacity: 0.9;
+}
+
+.interpretation ul {
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(11, 11, 11, 0.85);
+  line-height: 1.55;
+}
+
+.interpretation p {
+  margin: 0;
+  color: rgba(11, 11, 11, 0.85);
+  line-height: 1.55;
 }
 
 .panel--profile {

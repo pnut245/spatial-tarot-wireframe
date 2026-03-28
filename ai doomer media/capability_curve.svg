@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+<style>
+  .title{font:700 20px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;fill:#111;}
+  .axis{font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;fill:#333;}
+  .label{font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;fill:#111;}
+  .small{font:10px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;fill:#222;}
+  .org{font:600 13px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;fill:#111;}
+</style>
+<text x="70" y="38" class="title">Cumulative capability-tags introduced (milestone-based)</text>
+<text x="70" y="58" class="small">Counts unique tags seen so far in ai_models_timeline_crosslab.csv (not a benchmark score).</text>
+<line x1="70" y1="450" x2="1170" y2="450" stroke="#444" stroke-width="1"/>
+<line x1="70" y1="450" x2="70" y2="70" stroke="#444" stroke-width="1"/>
+<line x1="65" y1="450.0" x2="70" y2="450.0" stroke="#444" stroke-width="1"/>
+<text x="60" y="454.0" text-anchor="end" class="axis">0</text>
+<line x1="65" y1="382.94117647058823" x2="70" y2="382.94117647058823" stroke="#444" stroke-width="1"/>
+<text x="60" y="386.94117647058823" text-anchor="end" class="axis">3</text>
+<line x1="65" y1="315.88235294117646" x2="70" y2="315.88235294117646" stroke="#444" stroke-width="1"/>
+<text x="60" y="319.88235294117646" text-anchor="end" class="axis">6</text>
+<line x1="65" y1="248.8235294117647" x2="70" y2="248.8235294117647" stroke="#444" stroke-width="1"/>
+<text x="60" y="252.8235294117647" text-anchor="end" class="axis">9</text>
+<line x1="65" y1="181.76470588235293" x2="70" y2="181.76470588235293" stroke="#444" stroke-width="1"/>
+<text x="60" y="185.76470588235293" text-anchor="end" class="axis">12</text>
+<line x1="65" y1="114.70588235294116" x2="70" y2="114.70588235294116" stroke="#444" stroke-width="1"/>
+<text x="60" y="118.70588235294116" text-anchor="end" class="axis">15</text>
+<line x1="99.55499580184718" y1="450" x2="99.55499580184718" y2="456" stroke="#444" stroke-width="1"/>
+<text x="99.55499580184718" y="472" text-anchor="middle" class="axis">2023</text>
+<line x1="436.66666666666663" y1="450" x2="436.66666666666663" y2="456" stroke="#444" stroke-width="1"/>
+<text x="436.66666666666663" y="472" text-anchor="middle" class="axis">2024</text>
+<line x1="774.7019311502938" y1="450" x2="774.7019311502938" y2="456" stroke="#444" stroke-width="1"/>
+<text x="774.7019311502938" y="472" text-anchor="middle" class="axis">2025</text>
+<line x1="1111.8136020151132" y1="450" x2="1111.8136020151132" y2="456" stroke="#444" stroke-width="1"/>
+<text x="1111.8136020151132" y="472" text-anchor="middle" class="axis">2026</text>
+<polyline points="70.0,405.3 166.1,360.6 276.0,338.2 282.4,315.9 346.2,271.2 348.0,271.2 384.9,226.5 412.7,204.1 417.3,181.8 478.2,181.8 488.4,159.4 494.9,159.4 535.5,159.4 536.4,159.4 559.5,159.4 595.5,159.4 625.1,159.4 626.0,159.4 672.2,159.4 676.8,159.4 684.2,137.1 709.1,92.4 755.3,92.4 839.4,70.0 883.7,70.0 956.6,70.0 976.0,70.0 1071.2,70.0 1084.1,70.0 1155.2,70.0 1170.0,70.0" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="70.0" cy="405.3" r="3.2" fill="#2563eb"/>
+<circle cx="166.1" cy="360.6" r="3.2" fill="#2563eb"/>
+<circle cx="276.0" cy="338.2" r="3.2" fill="#2563eb"/>
+<circle cx="282.4" cy="315.9" r="3.2" fill="#2563eb"/>
+<circle cx="346.2" cy="271.2" r="3.2" fill="#2563eb"/>
+<circle cx="348.0" cy="271.2" r="3.2" fill="#2563eb"/>
+<circle cx="384.9" cy="226.5" r="3.2" fill="#2563eb"/>
+<circle cx="412.7" cy="204.1" r="3.2" fill="#2563eb"/>
+<circle cx="417.3" cy="181.8" r="3.2" fill="#2563eb"/>
+<circle cx="478.2" cy="181.8" r="3.2" fill="#2563eb"/>
+<circle cx="488.4" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="494.9" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="535.5" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="536.4" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="559.5" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="595.5" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="625.1" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="626.0" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="672.2" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="676.8" cy="159.4" r="3.2" fill="#2563eb"/>
+<circle cx="684.2" cy="137.1" r="3.2" fill="#2563eb"/>
+<circle cx="709.1" cy="92.4" r="3.2" fill="#2563eb"/>
+<circle cx="755.3" cy="92.4" r="3.2" fill="#2563eb"/>
+<circle cx="839.4" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="883.7" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="956.6" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="976.0" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="1071.2" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="1084.1" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="1155.2" cy="70.0" r="3.2" fill="#2563eb"/>
+<circle cx="1170.0" cy="70.0" r="3.2" fill="#2563eb"/>
+<text x="1170.0" y="60.0" text-anchor="end" class="small">17 tags</text>
+</svg>
