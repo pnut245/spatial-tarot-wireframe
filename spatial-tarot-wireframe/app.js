@@ -1,5 +1,5 @@
 const STORAGE_KEY = "spatial-tarot-wireframe:v1";
-const APP_VERSION = "2026-03-28-onboarding";
+const APP_VERSION = "2026-03-28-onboarding-submit";
 
 // Embedded so this works when opening `index.html` directly (no local server needed).
 const DECK = {
@@ -1549,12 +1549,26 @@ function wireControls(state, deck) {
       renderAll(state);
     };
 
-  const profileContinue = byId("profile-continue");
-  if (profileContinue)
-    profileContinue.onclick = () => {
+  const profileSubmit = byId("profile-submit");
+  if (profileSubmit)
+    profileSubmit.onclick = () => {
       state.profile ||= defaultState(deck).profile;
       state.profile.onboarding_completed_at = nowIso();
       bumpProfileUpdated(state);
+
+      // If user answered some questions but didn't reach the end, compute a partial profile.
+      const answers = state.profile?.quiz?.answers ?? {};
+      const hasAnyAnswers = Object.keys(answers).length > 0;
+      const total = PROFILE_QUESTIONS.length;
+      const answeredCount = Object.keys(answers).length;
+      if (hasAnyAnswers && answeredCount < total) {
+        const computed = computeProfileFromAnswers(answers);
+        state.profile.scores = computed;
+        state.profile.enneagram = computed.enneagram;
+        state.profile.astrology_resonance = computed.astrology_resonance;
+        addEvent(state, "profile.partial_compute", { answered: answeredCount, total });
+      }
+
       addEvent(state, "profile.onboarding.continue", {
         has_quiz: Boolean(state.profile?.scores),
         has_natal: Boolean(state.profile?.natal?.birth_date)
