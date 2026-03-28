@@ -1,5 +1,5 @@
 const STORAGE_KEY = "spatial-tarot-wireframe:v1";
-const APP_VERSION = "2026-03-28-profile-quiz";
+const APP_VERSION = "2026-03-28-onboarding";
 
 // Embedded so this works when opening `index.html` directly (no local server needed).
 const DECK = {
@@ -412,6 +412,8 @@ function defaultState(deck) {
       version: 1,
       created_at: null,
       updated_at: null,
+      onboarding_completed_at: null,
+      onboarding_skipped_at: null,
       quiz: { answers: {} }, // questionId -> optionId
       scores: null,
       enneagram: null,
@@ -1485,8 +1487,32 @@ function wireControls(state, deck) {
       void dealToBoardWithDelay(state, count, { kind: "deal_full" });
     };
 
-  const profileBack = byId("profile-back");
-  if (profileBack) profileBack.onclick = () => showScreen("session");
+  const profileSkip = byId("profile-skip");
+  if (profileSkip)
+    profileSkip.onclick = () => {
+      state.profile ||= defaultState(deck).profile;
+      state.profile.onboarding_skipped_at = nowIso();
+      bumpProfileUpdated(state);
+      addEvent(state, "profile.onboarding.skip", {});
+      saveState(state);
+      showScreen("session");
+      renderAll(state);
+    };
+
+  const profileContinue = byId("profile-continue");
+  if (profileContinue)
+    profileContinue.onclick = () => {
+      state.profile ||= defaultState(deck).profile;
+      state.profile.onboarding_completed_at = nowIso();
+      bumpProfileUpdated(state);
+      addEvent(state, "profile.onboarding.continue", {
+        has_quiz: Boolean(state.profile?.scores),
+        has_natal: Boolean(state.profile?.natal?.birth_date)
+      });
+      saveState(state);
+      showScreen("session");
+      renderAll(state);
+    };
 
   const profileStart = byId("profile-start");
   if (profileStart)
@@ -1700,6 +1726,8 @@ async function main() {
   state.user_id ||= getOrCreateUserId();
   state.profile ||= defaultState(deck).profile;
   state.profile.quiz ||= { answers: {} };
+  state.profile.onboarding_completed_at ??= null;
+  state.profile.onboarding_skipped_at ??= null;
   const maxDraw = Math.max(
     0,
     ...Object.values(state.instances)
@@ -1720,9 +1748,11 @@ async function main() {
 
   wireControls(state, deck);
 
-  // Default to session screen if user already started.
+  // Opening screen: show onboarding/profile before first session actions.
   const hasWork = state.events.some((e) => e.type !== "session.start");
-  showScreen(hasWork ? "session" : "home");
+  const onboarded = Boolean(state.profile?.onboarding_completed_at || state.profile?.onboarding_skipped_at);
+  if (!hasWork && !onboarded) showScreen("profile");
+  else showScreen(hasWork ? "session" : "home");
   renderAll(state);
   renderProfile(state);
   renderProfileSummary(state);
