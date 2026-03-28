@@ -531,8 +531,13 @@ textarea {
   aspect-ratio: 3 / 5;
   overflow: hidden;
   display: block;
-  box-shadow: 0 10px 0 rgba(11, 11, 11, 0.12);
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+  box-shadow:
+    0 10px 0 rgba(11, 11, 11, 0.12),
+    0 18px 0 rgba(11, 11, 11, 0.08),
+    0 26px 0 rgba(11, 11, 11, 0.05);
+  transform: translateZ(0);
+  transform-style: preserve-3d;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 120ms ease, background 120ms ease;
   perspective: 980px;
 }
 
@@ -544,6 +549,19 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.1);
   pointer-events: none;
   opacity: 0.85;
+}
+
+.tarot-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  background: radial-gradient(520px 260px at 18% 14%, rgba(255, 255, 255, 0.55), transparent 55%),
+    radial-gradient(460px 240px at 88% 30%, rgba(194, 209, 255, 0.45), transparent 58%);
+  transition: opacity 140ms ease;
 }
 
 .tarot-card__inner {
@@ -573,7 +591,7 @@ textarea {
 }
 
 .tarot-card__face--back {
-  transform: rotateY(0deg);
+  transform: rotateY(0deg) translateZ(1px);
   background: radial-gradient(520px 220px at 25% 20%, rgba(113, 62, 149, 0.16), transparent 55%),
     radial-gradient(520px 220px at 75% 30%, rgba(194, 209, 255, 0.55), transparent 60%),
     repeating-linear-gradient(
@@ -587,7 +605,7 @@ textarea {
 }
 
 .tarot-card__face--front {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
   background: rgba(253, 253, 253, 0.95);
 }
 
@@ -616,8 +634,22 @@ textarea {
 }
 
 .tarot-card:hover {
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
-  transform: translateY(-1px);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.42),
+    0 28px 60px rgba(0, 0, 0, 0.16);
+  transform: translateY(-2px) rotateX(6deg) rotateY(-7deg);
+}
+
+.tarot-card:hover::after {
+  opacity: 0.85;
+}
+
+.slot .tarot-card:hover {
+  transform: translateY(-2px) rotateX(4deg) rotateY(-5deg);
+}
+
+.hand .tarot-card:hover {
+  transform: translateY(-2px) rotateX(7deg) rotateY(-10deg);
 }
 
 .tarot-card--dealt {
@@ -632,6 +664,16 @@ textarea {
   to {
     transform: translateY(0px) scale(1);
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarot-card,
+  .tarot-card__inner {
+    transition: none !important;
+  }
+  .tarot-card--dealt {
+    animation: none !important;
   }
 }
 
