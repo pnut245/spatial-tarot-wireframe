@@ -1,0 +1,138 @@
+{
+  "deck_id": "rws-wireframe",
+  "cards": [
+    {
+      "id": "major-00",
+      "name": "The Fool",
+      "keywords": ["beginning", "leap", "naivete"],
+      "meaning": "Starting point, openness, and a willingness to step into the unknown."
+    },
+    {
+      "id": "major-01",
+      "name": "The Magician",
+      "keywords": ["agency", "tools", "focus"],
+      "meaning": "Intentional action, skills on hand, and shaping outcomes through attention."
+    },
+    {
+      "id": "major-02",
+      "name": "The High Priestess",
+      "keywords": ["intuition", "hidden", "silence"],
+      "meaning": "What is concealed or not yet spoken; trusting inner knowing and subtle signals."
+    },
+    {
+      "id": "major-03",
+      "name": "The Empress",
+      "keywords": ["growth", "care", "abundance"],
+      "meaning": "Nurturing, creation, and conditions that allow something to flourish."
+    },
+    {
+      "id": "major-04",
+      "name": "The Emperor",
+      "keywords": ["structure", "boundary", "authority"],
+      "meaning": "Stability through structure; leadership, rules, and the shape of responsibility."
+    },
+    {
+      "id": "major-05",
+      "name": "The Hierophant",
+      "keywords": ["tradition", "teaching", "ritual"],
+      "meaning": "Learning through tradition and shared practices; values and institutional frames."
+    },
+    {
+      "id": "major-06",
+      "name": "The Lovers",
+      "keywords": ["choice", "alignment", "bond"],
+      "meaning": "A meaningful choice; values alignment; relationship as mirror and commitment."
+    },
+    {
+      "id": "major-07",
+      "name": "The Chariot",
+      "keywords": ["direction", "will", "control"],
+      "meaning": "Momentum through a chosen direction; holding conflicting forces in tension."
+    },
+    {
+      "id": "major-08",
+      "name": "Strength",
+      "keywords": ["patience", "courage", "gentleness"],
+      "meaning": "Durable courage; influence through steadiness rather than force."
+    },
+    {
+      "id": "major-09",
+      "name": "The Hermit",
+      "keywords": ["search", "pause", "insight"],
+      "meaning": "Stepping back to see clearly; solitude in service of perspective."
+    },
+    {
+      "id": "major-10",
+      "name": "Wheel of Fortune",
+      "keywords": ["change", "cycle", "timing"],
+      "meaning": "Shifts in conditions; cycles and timing; what is in motion beyond control."
+    },
+    {
+      "id": "major-11",
+      "name": "Justice",
+      "keywords": ["balance", "truth", "consequence"],
+      "meaning": "Clarity, accountability, and the return of consequences to the present moment."
+    },
+    {
+      "id": "major-12",
+      "name": "The Hanged Man",
+      "keywords": ["reframe", "pause", "surrender"],
+      "meaning": "A change in viewpoint; waiting with purpose; letting go of a fixed approach."
+    },
+    {
+      "id": "major-13",
+      "name": "Death",
+      "keywords": ["ending", "transition", "release"],
+      "meaning": "A needed ending; clearing space; transition rather than literal finality."
+    },
+    {
+      "id": "major-14",
+      "name": "Temperance",
+      "keywords": ["integration", "blend", "pace"],
+      "meaning": "Gradual integration; mixing elements; steadiness and moderation."
+    },
+    {
+      "id": "major-15",
+      "name": "The Devil",
+      "keywords": ["attachment", "compulsion", "shadow"],
+      "meaning": "Patterns of attachment; what binds; noticing where choice has narrowed."
+    },
+    {
+      "id": "major-16",
+      "name": "The Tower",
+      "keywords": ["disruption", "truth", "shock"],
+      "meaning": "Sudden change; a revealing collapse; disruption that forces honesty."
+    },
+    {
+      "id": "major-17",
+      "name": "The Star",
+      "keywords": ["hope", "guidance", "renewal"],
+      "meaning": "Guidance after difficulty; renewal; a quiet, steady North Star."
+    },
+    {
+      "id": "major-18",
+      "name": "The Moon",
+      "keywords": ["uncertainty", "dream", "projection"],
+      "meaning": "Ambiguity and projection; moving through uncertainty with care."
+    },
+    {
+      "id": "major-19",
+      "name": "The Sun",
+      "keywords": ["clarity", "vitality", "confidence"],
+      "meaning": "Clarity and warmth; energy returns; simple truths become visible."
+    },
+    {
+      "id": "major-20",
+      "name": "Judgement",
+      "keywords": ["reckoning", "call", "decision"],
+      "meaning": "A call to step forward; honest appraisal; moving from past to next chapter."
+    },
+    {
+      "id": "major-21",
+      "name": "The World",
+      "keywords": ["completion", "integration", "cycle"],
+      "meaning": "Completion and integration; seeing the whole; one cycle closing cleanly."
+    }
+  ]
+}
+

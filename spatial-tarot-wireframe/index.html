@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spatial Tarot (3D Web Wireframe)</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand__title">Spatial Tarot</div>
+        <div class="brand__subtitle">3D web wireframe (Volumetric Cross)</div>
+      </div>
+      <nav class="topbar__nav">
+        <button class="btn btn--ghost" id="nav-home" type="button">Home</button>
+        <button class="btn btn--ghost" id="nav-session" type="button">Start</button>
+        <button class="btn btn--ghost" id="nav-export" type="button">Export JSON</button>
+        <button class="btn btn--ghost" id="nav-reset" type="button">Reset</button>
+      </nav>
+    </header>
+
+    <main class="app">
+      <section class="panel panel--home" id="screen-home">
+        <h1>Wireframe goals</h1>
+        <ul class="bullets">
+          <li>Test whether a <strong>volumetric spread</strong> stays interpretable in 3D.</li>
+          <li>Validate the flow: <strong>question → draw → place → inspect → annotate → export</strong>.</li>
+          <li>Prototype <strong>input redundancy</strong>: drag/drop + click-to-place (touch-friendly).</li>
+        </ul>
+
+        <div class="grid2">
+          <div class="cardlike">
+            <h2>Method: Volumetric Cross</h2>
+            <p>
+              Three discrete planes: <strong>Understory</strong> (hidden), <strong>Surface</strong> (present),
+              <strong>Horizon</strong> (trajectory). Slots align vertically so you can read “correspondences”
+              across layers.
+            </p>
+          </div>
+          <div class="cardlike">
+            <h2>What to test (5–10 min)</h2>
+            <ol class="steps">
+              <li>Enter a question.</li>
+              <li>Draw 6 cards, place them into any slots.</li>
+              <li>Inspect a card; add a note.</li>
+              <li>Hover a slot to see vertical correspondences.</li>
+              <li>Export JSON and share it with you.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn--primary" id="home-start" type="button">Start a session</button>
+        </div>
+      </section>
+
+      <section class="panel panel--session hidden" id="screen-session">
+        <div class="session__left">
+          <div class="cardlike">
+            <h2>Session</h2>
+            <label class="field">
+              <span>Question / intention</span>
+              <input id="question" placeholder="What do I need to understand about…?" />
+            </label>
+            <div class="row">
+              <button class="btn btn--primary" id="draw-one" type="button">Draw 1</button>
+              <button class="btn" id="draw-three" type="button">Draw 3</button>
+              <button class="btn" id="draw-clarifier" type="button">Clarifier</button>
+            </div>
+            <div class="hint">
+              Place cards by <strong>dragging</strong> onto a slot or by <strong>clicking a card</strong>, then
+              <strong>clicking a slot</strong>.
+            </div>
+          </div>
+
+          <div class="cardlike">
+            <h2>Hand</h2>
+            <div class="hand" id="hand"></div>
+            <div class="hint">
+              Tip: “Inspect” brings a card to a stable reading distance (wireframe version).
+            </div>
+          </div>
+
+          <div class="cardlike">
+            <h2>Event log</h2>
+            <div class="log" id="log"></div>
+          </div>
+        </div>
+
+        <div class="session__center">
+          <div class="stage">
+            <div class="stage__legend">
+              <div class="legend">
+                <span class="pill pill--u">Understory</span>
+                <span class="pill pill--s">Surface</span>
+                <span class="pill pill--h">Horizon</span>
+              </div>
+              <div class="legend__help">Hover a slot to highlight its vertical correspondence.</div>
+            </div>
+
+            <div class="volume" id="volume" aria-label="Volumetric spread">
+              <div class="plane plane--horizon" data-plane="horizon">
+                <div class="plane__title">Horizon (trajectory)</div>
+                <div class="slots" id="slots-horizon"></div>
+              </div>
+              <div class="plane plane--surface" data-plane="surface">
+                <div class="plane__title">Surface (present)</div>
+                <div class="slots" id="slots-surface"></div>
+              </div>
+              <div class="plane plane--understory" data-plane="understory">
+                <div class="plane__title">Understory (hidden)</div>
+                <div class="slots" id="slots-understory"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="session__right">
+          <div class="cardlike">
+            <h2>Inspect</h2>
+            <div class="inspect" id="inspect">
+              <div class="inspect__empty">Select a card to inspect.</div>
+            </div>
+          </div>
+
+          <div class="cardlike">
+            <h2>Notes</h2>
+            <label class="field">
+              <span>For selected card</span>
+              <textarea id="note" rows="5" placeholder="What stands out? Any correspondences?"></textarea>
+            </label>
+            <div class="row">
+              <button class="btn btn--primary" id="save-note" type="button">Save note</button>
+              <button class="btn" id="clear-note" type="button">Clear</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal hidden" id="modal">
+      <div class="modal__backdrop" id="modal-backdrop"></div>
+      <div class="modal__content">
+        <div class="modal__header">
+          <div class="modal__title" id="modal-title">Export</div>
+          <button class="btn btn--ghost" id="modal-close" type="button">Close</button>
+        </div>
+        <pre class="modal__pre" id="modal-pre"></pre>
+        <div class="modal__footer">
+          <button class="btn btn--primary" id="download-json" type="button">Download JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
