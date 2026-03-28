@@ -1748,11 +1748,8 @@ async function main() {
 
   wireControls(state, deck);
 
-  // Opening screen: show onboarding/profile before first session actions.
-  const hasWork = state.events.some((e) => e.type !== "session.start");
-  const onboarded = Boolean(state.profile?.onboarding_completed_at || state.profile?.onboarding_skipped_at);
-  if (!hasWork && !onboarded) showScreen("profile");
-  else showScreen(hasWork ? "session" : "home");
+  // UX: always start on Profile (onboarding), then user continues to cards.
+  showScreen("profile");
   renderAll(state);
   renderProfile(state);
   renderProfileSummary(state);
