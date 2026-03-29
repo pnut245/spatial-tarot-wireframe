@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tarot Wheel (Dart Draw)</title>
-    <link rel="stylesheet" href="./styles.css?v=20260329a" />
+    <link rel="stylesheet" href="./styles.css?v=20260329b" />
   </head>
   <body>
     <header class="topbar">
@@ -25,7 +25,7 @@
             <input id="question" placeholder="Type your question… (optional for now)" autocomplete="off" />
             <button class="btn btn--primary" id="throw" type="button">Throw dart</button>
           </div>
-          <div class="hint">Drag the wheel to “turn it”, then throw a dart to select a slice.</div>
+          <div class="hint">Two rings: outer = Major Arcana, inner = Minor Arcana. Drag a ring to turn it, then throw a dart to select both.</div>
         </div>
 
         <div class="layout">
@@ -38,19 +38,19 @@
               <div class="dart" id="dart" aria-hidden="true"></div>
               <div class="wheelMount" id="wheelMount" aria-label="Tarot wheel"></div>
             </div>
-            <div class="wheelStage__controls">
-              <div class="toggle">
-                <span>Spin strength</span>
-                <input id="strength" type="range" min="3" max="9" step="1" value="6" />
-                <span class="toggle__value" id="strengthValue">6</span>
-              </div>
-              <div class="hint">Pointer is fixed; the wheel rotates underneath.</div>
+              <div class="wheelStage__controls">
+                <div class="toggle">
+                  <span>Spin strength</span>
+                  <input id="strength" type="range" min="3" max="9" step="1" value="6" />
+                  <span class="toggle__value" id="strengthValue">6</span>
+                </div>
+              <div class="hint">Pointer is fixed; rings rotate underneath. Drag near the edge for Majors, nearer the center for Minors.</div>
             </div>
           </div>
 
           <aside class="info">
             <div class="cardlike">
-              <h2>Selected slice</h2>
+              <h2>Selected</h2>
               <div class="selected" id="selected">
                 <div class="inspect__empty">Throw a dart to select a card.</div>
               </div>
@@ -59,9 +59,9 @@
             <div class="cardlike">
               <h2>How it works</h2>
               <ul class="bullets">
-                <li>Each Major Arcana card is a wheel slice.</li>
-                <li>You can rotate the wheel (drag).</li>
-                <li>Throwing a dart spins to a random landing slice.</li>
+                <li>Major Arcana = outer ring (22 slices).</li>
+                <li>Minor Arcana = inner ring (56 slices).</li>
+                <li>Throwing a dart spins both rings and selects a pair.</li>
               </ul>
             </div>
           </aside>
@@ -69,7 +69,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=20260329a" defer></script>
+    <script src="./app.js?v=20260329b" defer></script>
   </body>
 </html>
-

@@ -198,6 +198,14 @@ svg {
   will-change: transform;
 }
 
+#wheelMajors,
+#wheelMinors {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  transition: transform 0ms linear;
+  will-change: transform;
+}
+
 .wheelSlice {
   stroke: rgba(11, 11, 11, 0.7);
   stroke-width: 2;
@@ -209,6 +217,12 @@ svg {
   filter: drop-shadow(0 10px 0 rgba(11, 11, 11, 0.2));
 }
 
+.wheelSlice--activeMinor {
+  stroke: rgba(11, 11, 11, 0.95);
+  stroke-width: 3;
+  filter: drop-shadow(0 8px 0 rgba(11, 11, 11, 0.16));
+}
+
 .sliceLabel {
   font-family: var(--mono);
   font-size: 10px;
@@ -217,10 +231,25 @@ svg {
   pointer-events: none;
 }
 
+.sliceLabel--minor {
+  font-size: 9px;
+  fill: rgba(11, 11, 11, 0.76);
+}
+
+.sliceLabel--outer {
+  font-size: 9px;
+  fill: rgba(11, 11, 11, 0.7);
+}
+
 .wheelRing {
   fill: none;
   stroke: rgba(11, 11, 11, 0.9);
   stroke-width: 3;
+}
+
+.wheelRing--minor {
+  stroke: rgba(11, 11, 11, 0.55);
+  stroke-width: 2;
 }
 
 .wheelHub {
@@ -365,4 +394,3 @@ svg {
     animation: none !important;
   }
 }
-
